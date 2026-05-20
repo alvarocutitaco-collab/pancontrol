@@ -358,6 +358,70 @@ tbody td{padding:8px 10px;color:var(--brown);vertical-align:middle}
 .inv-mini-input:focus{border-color:var(--orange);background:#fff}
 
 /* ════════════════════════════════════════════
+   INVENTARIO — VISTA MEJORADA
+════════════════════════════════════════════ */
+.inv-toolbar{
+  display:flex;gap:8px;align-items:center;
+  padding:0 12px 12px;flex-wrap:wrap;
+}
+.inv-search{
+  flex:1;min-width:140px;
+  padding:9px 12px 9px 34px;
+  border:2px solid var(--cream3);border-radius:var(--r3);
+  font-size:.88rem;color:var(--brown);background:var(--cream);
+  outline:none;transition:border-color .15s;
+  font-family:'DM Sans',sans-serif;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237A6E68' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:10px center;
+}
+.inv-search:focus{border-color:var(--orange);background-color:#fff;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23C8511A' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E")}
+.inv-sort-btn{
+  padding:8px 12px;border:2px solid var(--cream3);border-radius:var(--r3);
+  background:var(--cream);color:var(--brown);font-size:.78rem;font-weight:600;
+  cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif;
+  transition:all .15s;
+}
+.inv-sort-btn.active{border-color:var(--orange);color:var(--orange);background:#FFF0E8}
+.inv-summary-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.inv-summary-table th{
+  padding:8px 10px;text-align:left;font-size:.65rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.07em;color:var(--gray);
+  border-bottom:2px solid var(--cream3);background:var(--cream);
+  position:sticky;top:0;
+}
+.inv-summary-row{cursor:pointer;transition:background .12s}
+.inv-summary-row:hover{background:#FFF0E8}
+.inv-summary-row.low-row{background:#FFF5F5}
+.inv-summary-row.low-row:hover{background:#FFECEC}
+.inv-summary-row td{
+  padding:9px 10px;border-bottom:1px solid var(--cream3);
+  vertical-align:middle;
+}
+.inv-name-main{font-weight:600;color:var(--brown);font-size:.84rem;line-height:1.3}
+.inv-name-sub{font-size:.68rem;color:var(--gray);margin-top:1px}
+.inv-stock-val{font-weight:700;font-size:.92rem}
+.inv-stock-ok{color:var(--green)}
+.inv-stock-low{color:var(--red)}
+.inv-stock-mid{color:var(--gold)}
+.inv-bar-sm{height:5px;border-radius:3px;background:var(--cream3);overflow:hidden;margin-top:3px;min-width:50px}
+.inv-bar-sm-fill{height:100%;border-radius:3px;transition:width .3s}
+.inv-edit-panel{display:none}
+.inv-edit-panel.open{display:table-row}
+.inv-edit-inner{
+  padding:12px 10px;background:var(--cream);
+  border-bottom:2px solid var(--orange);
+  display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;
+}
+.inv-edit-inner .fg{min-width:72px;flex:1}
+.inv-count-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:18px;height:18px;padding:0 5px;
+  background:var(--red);color:#fff;
+  border-radius:9px;font-size:.62rem;font-weight:700;
+  margin-left:5px;vertical-align:middle;
+}
+
+/* ════════════════════════════════════════════
    MODAL
 ════════════════════════════════════════════ */
 .modal-overlay{
@@ -412,6 +476,19 @@ body.viewer-mode .form-card,
 body.viewer-mode #btn-save-cats,
 body.viewer-mode .inv-save-btn,
 body.viewer-mode .add-line-btn{display:none!important}
+
+/* Inventario — viewer: no abrir panel de edición, ocultar botón guardar */
+body.viewer-mode .inv-summary-row{cursor:default!important}
+body.viewer-mode .inv-edit-panel{display:none!important}
+
+/* Catálogos — viewer: inputs de nombres de productos en solo lectura */
+body.viewer-mode .cat-item input{
+  pointer-events:none;background:transparent!important;
+  border-color:transparent!important;color:var(--brown)!important;
+  -webkit-appearance:none;cursor:default;
+}
+/* Catálogos — viewer: ocultar secciones de agregar encargados/destinos */
+body.viewer-mode .add-item-row{display:none!important}
 
 /* ════════════════════════════════════════════
    DASHBOARD ESPECÍFICO
@@ -604,20 +681,32 @@ body.viewer-mode .add-line-btn{display:none!important}
 <!-- ── DASHBOARD ── -->
 <div class="page active" id="page-dashboard">
   <div class="page-header">
-    <div class="ptitle">📊 Resumen del Día</div>
+    <div class="ptitle" id="dash-ptitle">📊 Resumen del Día</div>
     <div id="dash-fecha"></div>
+  </div>
+  <!-- Selector de período -->
+  <div style="padding:0 12px 14px;display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;gap:6px">
+      <button class="btn bsec bsm" id="dash-btn-dia"    style="flex:1;border:2px solid var(--orange);color:var(--orange);font-weight:700" onclick="dashSetPeriodo('dia')">📅 Día</button>
+      <button class="btn bsec bsm" id="dash-btn-semana" style="flex:1" onclick="dashSetPeriodo('semana')">📆 Semana</button>
+      <button class="btn bsec bsm" id="dash-btn-mes"    style="flex:1" onclick="dashSetPeriodo('mes')">🗓 Mes</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="date" id="dash-fecha-input" style="flex:1;padding:9px 12px;border:2px solid var(--cream3);border-radius:var(--r3);font-size:.88rem;color:var(--brown);background:var(--cream);outline:none;font-family:'DM Sans',sans-serif" onchange="renderDash()">
+      <button class="btn bp bsm" onclick="dashIrHoy()">Hoy</button>
+    </div>
   </div>
   <div class="stats-row" id="sgrid"></div>
   <div class="card">
-    <div class="card-title">🌾 Insumos Hoy</div>
+    <div class="card-title">🌾 Insumos <span id="dash-lbl-periodo">Hoy</span></div>
     <div class="table-wrap"><table id="dash-ins-t"><thead><tr><th>Insumo</th><th>Entradas</th><th>Salidas</th></tr></thead><tbody></tbody></table></div>
   </div>
   <div class="card">
-    <div class="card-title">⚙️ Producción Hoy</div>
+    <div class="card-title">⚙️ Producción <span id="dash-lbl-periodo2">Hoy</span></div>
     <div class="table-wrap"><table id="dash-prod-t"><thead><tr><th>Producto</th><th>Tipo</th><th>Neto</th></tr></thead><tbody></tbody></table></div>
   </div>
   <div class="card">
-    <div class="card-title">📤 Salidas Hoy</div>
+    <div class="card-title">📤 Salidas <span id="dash-lbl-periodo3">Hoy</span></div>
     <div class="table-wrap"><table id="dash-sal-t"><thead><tr><th>Producto</th><th>Cant.</th><th>Destino</th></tr></thead><tbody></tbody></table></div>
   </div>
   <div class="card">
@@ -664,9 +753,11 @@ body.viewer-mode .add-line-btn{display:none!important}
     <div class="card">
       <div class="card-title" style="justify-content:space-between">
         <span>Registros de Entradas</span>
-        <div style="display:flex;gap:6px;align-items:center">
+        <div style="display:flex;gap:4px;align-items:center">
+          <button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('ent-filtro',-1,renderEntradas)" title="Día anterior">◀</button>
           <input type="date" id="ent-filtro" onchange="renderEntradas()" style="padding:6px 8px;border:1.5px solid var(--cream3);border-radius:8px;font-size:.78rem;background:var(--cream);outline:none;color:var(--brown)">
-          <button class="btn bsec bsm" onclick="document.getElementById('ent-filtro').value='';renderEntradas()">Todos</button>
+          <button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('ent-filtro',1,renderEntradas)" title="Día siguiente">▶</button>
+          <button class="btn bp bsm" onclick="irHoyFiltro('ent-filtro',renderEntradas)">Hoy</button>
         </div>
       </div>
       <div class="table-wrap"><table id="ent-table">
@@ -696,9 +787,11 @@ body.viewer-mode .add-line-btn{display:none!important}
     <div class="card">
       <div class="card-title" style="justify-content:space-between">
         <span>Registros de Salidas</span>
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;gap:4px">
+          <button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('sal-ins-filtro',-1,renderSalidasIns)" title="Día anterior">◀</button>
           <input type="date" id="sal-ins-filtro" onchange="renderSalidasIns()" style="padding:6px 8px;border:1.5px solid var(--cream3);border-radius:8px;font-size:.78rem;background:var(--cream);outline:none;color:var(--brown)">
-          <button class="btn bsec bsm" onclick="document.getElementById('sal-ins-filtro').value='';renderSalidasIns()">Todos</button>
+          <button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('sal-ins-filtro',1,renderSalidasIns)" title="Día siguiente">▶</button>
+          <button class="btn bp bsm" onclick="irHoyFiltro('sal-ins-filtro',renderSalidasIns)">Hoy</button>
         </div>
       </div>
       <div class="table-wrap"><table id="sal-ins-table">
@@ -737,7 +830,7 @@ body.viewer-mode .add-line-btn{display:none!important}
     </div>
     <div class="card">
       <div class="card-title" style="justify-content:space-between"><span>Registros de Panes</span>
-        <div style="display:flex;gap:6px"><input type="date" id="pp-filtro" onchange="renderProd()" style="padding:6px 8px;border:1.5px solid var(--cream3);border-radius:8px;font-size:.78rem;background:var(--cream);outline:none;color:var(--brown)"><button class="btn bsec bsm" onclick="document.getElementById('pp-filtro').value='';renderProd()">Todos</button></div>
+        <div style="display:flex;gap:4px"><button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('pp-filtro',-1,renderProd)" title="Día anterior">◀</button><input type="date" id="pp-filtro" onchange="renderProd()" style="padding:6px 8px;border:1.5px solid var(--cream3);border-radius:8px;font-size:.78rem;background:var(--cream);outline:none;color:var(--brown)"><button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('pp-filtro',1,renderProd)" title="Día siguiente">▶</button><button class="btn bp bsm" onclick="irHoyFiltro('pp-filtro',renderProd)">Hoy</button></div>
       </div>
       <div class="table-wrap"><table id="prod-panes-t"><thead><tr><th>#</th><th>Fecha</th><th>Turno</th><th>Tipo</th><th>Und.</th><th>Prod.</th><th>Def.</th><th>Neto</th><th>Obs.</th><th>✏️</th><th>🗑</th></tr></thead><tbody></tbody></table></div>
     </div>
@@ -760,7 +853,7 @@ body.viewer-mode .add-line-btn{display:none!important}
     </div>
     <div class="card">
       <div class="card-title" style="justify-content:space-between"><span>Registros de Pasteles</span>
-        <div style="display:flex;gap:6px"><input type="date" id="pa-filtro" onchange="renderProd()" style="padding:6px 8px;border:1.5px solid var(--cream3);border-radius:8px;font-size:.78rem;background:var(--cream);outline:none;color:var(--brown)"><button class="btn bsec bsm" onclick="document.getElementById('pa-filtro').value='';renderProd()">Todos</button></div>
+        <div style="display:flex;gap:4px"><button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('pa-filtro',-1,renderProd)" title="Día anterior">◀</button><input type="date" id="pa-filtro" onchange="renderProd()" style="padding:6px 8px;border:1.5px solid var(--cream3);border-radius:8px;font-size:.78rem;background:var(--cream);outline:none;color:var(--brown)"><button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('pa-filtro',1,renderProd)" title="Día siguiente">▶</button><button class="btn bp bsm" onclick="irHoyFiltro('pa-filtro',renderProd)">Hoy</button></div>
       </div>
       <div class="table-wrap"><table id="prod-past-t"><thead><tr><th>#</th><th>Fecha</th><th>Turno</th><th>Tipo</th><th>Und.</th><th>Prod.</th><th>Def.</th><th>Neto</th><th>Obs.</th><th>✏️</th><th>🗑</th></tr></thead><tbody></tbody></table></div>
     </div>
@@ -790,7 +883,7 @@ body.viewer-mode .add-line-btn{display:none!important}
   </div>
   <div class="card">
     <div class="card-title" style="justify-content:space-between"><span>Registros de Salidas</span>
-      <div style="display:flex;gap:6px"><input type="date" id="sp-filtro" onchange="renderSalidaProd()" style="padding:6px 8px;border:1.5px solid var(--cream3);border-radius:8px;font-size:.78rem;background:var(--cream);outline:none;color:var(--brown)"><button class="btn bsec bsm" onclick="document.getElementById('sp-filtro').value='';renderSalidaProd()">Todos</button></div>
+      <div style="display:flex;gap:4px"><button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('sp-filtro',-1,renderSalidaProd)" title="Día anterior">◀</button><input type="date" id="sp-filtro" onchange="renderSalidaProd()" style="padding:6px 8px;border:1.5px solid var(--cream3);border-radius:8px;font-size:.78rem;background:var(--cream);outline:none;color:var(--brown)"><button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('sp-filtro',1,renderSalidaProd)" title="Día siguiente">▶</button><button class="btn bp bsm" onclick="irHoyFiltro('sp-filtro',renderSalidaProd)">Hoy</button></div>
     </div>
     <div class="table-wrap"><table id="sp-table"><thead><tr><th>#</th><th>Fecha</th><th>Cat.</th><th>Producto</th><th>Und.</th><th>Cant.</th><th>Destino</th><th>Encargado</th><th>N°Doc</th><th>Obs.</th><th>✏️</th><th>🗑</th></tr></thead><tbody></tbody></table></div>
   </div>
@@ -800,17 +893,53 @@ body.viewer-mode .add-line-btn{display:none!important}
 <div class="page" id="page-inventario">
   <div class="page-header">
     <div class="ptitle">📦 Inventario</div>
-    <div class="psub">Stock calculado automáticamente</div>
+    <div class="psub">Stock calculado automáticamente — toca una fila para ajustar</div>
   </div>
   <div class="tabs">
-    <div class="tab active" onclick="switchTab('inv','ins',this)">🌾 Insumos</div>
+    <div class="tab active" onclick="switchTab('inv','ins',this)">🌾 Insumos <span id="inv-ins-badge"></span></div>
     <div class="tab" onclick="switchTab('inv','prod',this)">🍞🎂 Productos</div>
   </div>
+
+  <!-- TAB INSUMOS -->
   <div class="tc active" id="inv-tab-ins">
-    <div id="inv-ins-cards" style="padding:0 12px"></div>
+    <div class="inv-toolbar">
+      <input class="inv-search" type="text" id="inv-ins-search" placeholder="Buscar insumo..." oninput="filterInv('ins')">
+      <button class="inv-sort-btn active" id="inv-ins-sort-stock" onclick="sortInv('ins','stock')">⬆ Stock</button>
+      <button class="inv-sort-btn" id="inv-ins-sort-az" onclick="sortInv('ins','az')">A–Z</button>
+    </div>
+    <div style="padding:0 12px;overflow-x:auto">
+      <table class="inv-summary-table">
+        <thead><tr>
+          <th>Insumo</th>
+          <th style="text-align:center">Entradas</th>
+          <th style="text-align:center">Salidas</th>
+          <th style="text-align:center">Stock</th>
+          <th>Estado / Barra</th>
+        </tr></thead>
+        <tbody id="inv-ins-tbody"></tbody>
+      </table>
+    </div>
   </div>
+
+  <!-- TAB PRODUCTOS -->
   <div class="tc" id="inv-tab-prod">
-    <div id="inv-prod-cards" style="padding:0 12px"></div>
+    <div class="inv-toolbar">
+      <input class="inv-search" type="text" id="inv-prod-search" placeholder="Buscar producto..." oninput="filterInv('prod')">
+      <button class="inv-sort-btn active" id="inv-prod-sort-stock" onclick="sortInv('prod','stock')">⬆ Stock</button>
+      <button class="inv-sort-btn" id="inv-prod-sort-az" onclick="sortInv('prod','az')">A–Z</button>
+    </div>
+    <div style="padding:0 12px;overflow-x:auto">
+      <table class="inv-summary-table">
+        <thead><tr>
+          <th>Producto</th>
+          <th style="text-align:center">Producido</th>
+          <th style="text-align:center">Despachado</th>
+          <th style="text-align:center">Stock</th>
+          <th>Tipo</th>
+        </tr></thead>
+        <tbody id="inv-prod-tbody"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -886,7 +1015,7 @@ body.viewer-mode .add-line-btn{display:none!important}
 // ════════════════════════════════════════════
 // ROLES Y LOGIN
 // ════════════════════════════════════════════
-const ROLES={'alvaro':'admin','inserv':'viewer'};
+const ROLES={'mari_ing':'admin','planta_123':'viewer'};
 let currentRole=null;
 
 function doLogin(){
@@ -906,6 +1035,9 @@ function applyRole(role){
     rp.className='viewer';rp.textContent='👁 Lectura';
     const sdr=document.getElementById('sd-role');
     if(sdr)sdr.innerHTML='<div style="padding:8px 18px;font-size:.72rem;color:rgba(255,255,255,.4)">👁 Solo lectura</div>';
+    // Subtítulo catálogos en modo lectura
+    const catSub=document.querySelector('#page-catalogos .psub');
+    if(catSub)catSub.textContent='Solo lectura — contacta al administrador para hacer cambios';
   }else{
     document.body.classList.remove('viewer-mode');
     rp.className='admin';rp.textContent='👤 Admin';
@@ -1067,6 +1199,18 @@ function toast(msg,c='var(--green)'){const t=document.getElementById('toast');t.
 function v(id){return(document.getElementById(id)||{}).value||''}
 function setHoy(...ids){ids.forEach(id=>{const el=document.getElementById(id);if(el&&!el.value)el.value=hoy()})}
 function empty(cols){return`<tr><td colspan="${cols}" class="empty">Sin registros</td></tr>`}
+function navDia(filtroId,delta,renderFn){
+  const el=document.getElementById(filtroId);
+  const base=el.value||hoy();
+  const d=new Date(base+'T12:00:00');
+  d.setDate(d.getDate()+delta);
+  el.value=d.toISOString().split('T')[0];
+  renderFn();
+}
+function irHoyFiltro(filtroId,renderFn){
+  document.getElementById(filtroId).value=hoy();
+  renderFn();
+}
 
 // ════════════════════════════════════════════
 // NAVEGACIÓN
@@ -1141,7 +1285,8 @@ function fillDestinos(){
 function renderListaDestinos(){
   const c=document.getElementById('lista-destinos');if(!c)return;
   const dest=cats.destinos||[];
-  c.innerHTML=dest.length?dest.map((n,i)=>`<div class="cat-item"><span class="cat-item-num">${i+1}</span><span style="flex:1">${n}</span><button onclick="quitarDestino(${i})" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:2px 8px;border-radius:4px">✕</button></div>`).join(''):'<p style="color:var(--gray);font-size:.82rem;padding:8px 0">No hay destinos aún.</p>';
+  const isViewer=document.body.classList.contains('viewer-mode');
+  c.innerHTML=dest.length?dest.map((n,i)=>`<div class="cat-item"><span class="cat-item-num">${i+1}</span><span style="flex:1">${n}</span>${isViewer?'':'<button onclick="quitarDestino('+i+')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:2px 8px;border-radius:4px">✕</button>'}</div>`).join(''):'<p style="color:var(--gray);font-size:.82rem;padding:8px 0">No hay destinos aún.</p>';
 }
 function agregarDestino(){
   const inp=document.getElementById('new-destino');const val=(inp?.value||'').trim();
@@ -1156,7 +1301,8 @@ function quitarDestino(idx){
 function renderListaEncargados(){
   const c=document.getElementById('lista-encargados');if(!c)return;
   const enc=cats.encargados||[];
-  c.innerHTML=enc.length?enc.map((n,i)=>`<div class="cat-item"><span class="cat-item-num">${i+1}</span><span style="flex:1">${n}</span><button onclick="quitarEncargado(${i})" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:2px 8px;border-radius:4px">✕</button></div>`).join(''):'<p style="color:var(--gray);font-size:.82rem;padding:8px 0">No hay encargados aún.</p>';
+  const isViewer=document.body.classList.contains('viewer-mode');
+  c.innerHTML=enc.length?enc.map((n,i)=>`<div class="cat-item"><span class="cat-item-num">${i+1}</span><span style="flex:1">${n}</span>${isViewer?'':'<button onclick="quitarEncargado('+i+')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:2px 8px;border-radius:4px">✕</button>'}</div>`).join(''):'<p style="color:var(--gray);font-size:.82rem;padding:8px 0">No hay encargados aún.</p>';
 }
 function agregarEncargado(){
   const inp=document.getElementById('new-encargado');const val=(inp?.value||'').trim();
@@ -1219,8 +1365,11 @@ async function guardarEntrada(){
   toast(`✅ ${lineas.length} insumo(s) registrados`);renderEntradas();addLineaEntrada();
 }
 async function renderEntradas(){
-  const rows=await dbAll('entradas');const f=v('ent-filtro');
-  const data=f?rows.filter(r=>r.fecha===f):rows;
+  const rows=await dbAll('entradas');
+  const fEl=document.getElementById('ent-filtro');
+  if(!fEl.value)fEl.value=hoy();
+  const f=fEl.value;
+  const data=rows.filter(r=>r.fecha===f).reverse();
   const tb=document.querySelector('#ent-table tbody');
   if(!data.length){tb.innerHTML=empty(12);return}
   tb.innerHTML=data.map((r,i)=>`<tr>
@@ -1251,8 +1400,11 @@ async function guardarSalidaIns(){
   toast(`✅ ${lineas.length} insumo(s) registrados`);renderSalidasIns();addLineaSalidaIns();
 }
 async function renderSalidasIns(){
-  const rows=await dbAll('salidas_ins');const f=v('sal-ins-filtro');
-  const data=f?rows.filter(r=>r.fecha===f):rows;
+  const rows=await dbAll('salidas_ins');
+  const fEl=document.getElementById('sal-ins-filtro');
+  if(!fEl.value)fEl.value=hoy();
+  const f=fEl.value;
+  const data=rows.filter(r=>r.fecha===f).reverse();
   const tb=document.querySelector('#sal-ins-table tbody');
   if(!data.length){tb.innerHTML=empty(10);return}
   tb.innerHTML=data.map((r,i)=>`<tr>
@@ -1279,7 +1431,11 @@ async function guardarProd(tipo){
   toast('✅ Producción registrada');renderProd();
 }
 async function renderProd(){
-  const rows=await dbAll('produccion');const fp=v('pp-filtro'),fpa=v('pa-filtro');
+  const rows=await dbAll('produccion');
+  const fpEl=document.getElementById('pp-filtro');const fpaEl=document.getElementById('pa-filtro');
+  if(!fpEl.value)fpEl.value=hoy();
+  if(!fpaEl.value)fpaEl.value=hoy();
+  const fp=fpEl.value,fpa=fpaEl.value;
   const mk=(data,tbId)=>{
     const tb=document.querySelector('#'+tbId+' tbody');if(!data.length){tb.innerHTML=empty(11);return}
     tb.innerHTML=data.map((r,i)=>`<tr>
@@ -1291,8 +1447,8 @@ async function renderProd(){
       <td><button class="btn br bsm del-btn" onclick="del('produccion',${r.id},renderProd)">🗑</button></td>
     </tr>`).join('');
   };
-  mk(rows.filter(r=>r.tipo==='pan'&&(!fp||r.fecha===fp)),'prod-panes-t');
-  mk(rows.filter(r=>r.tipo==='pastel'&&(!fpa||r.fecha===fpa)),'prod-past-t');
+  mk(rows.filter(r=>r.tipo==='pan'&&r.fecha===fp).reverse(),'prod-panes-t');
+  mk(rows.filter(r=>r.tipo==='pastel'&&r.fecha===fpa).reverse(),'prod-past-t');
 }
 
 // ════════════════════════════════════════════
@@ -1306,8 +1462,11 @@ async function guardarSalidaProd(){
   toast('✅ Salida registrada');renderSalidaProd();fillProdSelect();
 }
 async function renderSalidaProd(){
-  const rows=await dbAll('salida_prod');const f=v('sp-filtro');
-  const data=f?rows.filter(r=>r.fecha===f):rows;
+  const rows=await dbAll('salida_prod');
+  const fEl=document.getElementById('sp-filtro');
+  if(!fEl.value)fEl.value=hoy();
+  const f=fEl.value;
+  const data=rows.filter(r=>r.fecha===f).reverse();
   const tb=document.querySelector('#sp-table tbody');
   if(!data.length){tb.innerHTML=empty(11);return}
   tb.innerHTML=data.map((r,i)=>`<tr>
@@ -1322,73 +1481,156 @@ async function renderSalidaProd(){
 }
 
 // ════════════════════════════════════════════
-// INVENTARIO — TARJETAS MÓVILES
+// INVENTARIO — VISTA MEJORADA
 // ════════════════════════════════════════════
+let _invInsData=[], _invProdData=[], _invInsSort='stock', _invProdSort='stock';
+
 async function renderInv(){
   const[ent,sal,prod,sp,invR]=await Promise.all([dbAll('entradas'),dbAll('salidas_ins'),dbAll('produccion'),dbAll('salida_prod'),dbAll('inventario')]);
   const getInv=key=>{const r=invR.find(r=>r.key===key);return r||{key,si:0,aj:0,min:0}};
 
-  // ── INSUMOS ──
-  const c1=document.getElementById('inv-ins-cards');
-  c1.innerHTML=cats.insumos.map((n,i)=>{
+  // Construir datos insumos
+  _invInsData=cats.insumos.map((n,i)=>{
     const e=ent.filter(r=>r.insumo===n).reduce((s,r)=>s+r.cantidad,0);
     const s=sal.filter(r=>r.insumo===n).reduce((s,r)=>s+r.cantidad,0);
     const inv=getInv('ins_'+n);
     const stock=(inv.si||0)+e-s+(inv.aj||0);
-    const min=inv.min||0;const low=min>0&&stock<=min;
-    const pct=min>0?Math.min(100,Math.round(stock/min*100)):100;
-    const barCls=pct<=50?'low':pct<=100?'mid':'';
-    return`<div class="inv-card${low?' low-stock':''}" data-rowtype="ins" data-rowidx="${i}">
-      <div class="inv-card-header">
-        <span class="inv-card-name">${n}</span>
-        ${low?'<span class="badge" style="background:#FFCDD2;color:var(--red)">⚠ Bajo mínimo</span>':'<span class="badge" style="background:#C8E6C9;color:var(--green)">OK</span>'}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:.78rem;margin-bottom:10px;text-align:center">
-        <div><div style="color:var(--gray);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Entradas</div><b style="color:var(--green)">${e}</b></div>
-        <div><div style="color:var(--gray);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Salidas</div><b style="color:var(--red)">${s}</b></div>
-        <div><div style="color:var(--gray);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Stock actual</div><b class="${low?'stock-red':''}">${stock}</b></div>
-      </div>
-      ${min>0?`<div class="ibar" style="margin-bottom:10px"><div class="bar"><div class="barfill ${barCls}" style="width:${pct}%"></div></div><span style="font-size:.7rem;color:var(--gray);min-width:40px">${pct}% / mín ${min}</span></div>`:''}
-      <div class="inv-card-row">
-        <div class="fg"><label>Stock Inicial</label><input type="number" class="inv-mini-input inv-si" value="${inv.si||0}" min="0"></div>
-        <div class="fg"><label>Ajuste (±)</label><input type="number" class="inv-mini-input inv-aj" value="${inv.aj||0}"></div>
-        <div class="fg"><label>Mínimo</label><input type="number" class="inv-mini-input inv-mn" value="${min}" min="0"></div>
-      </div>
-      <button class="btn bp bsm inv-save-btn" style="width:100%;justify-content:center" onclick="saveInvFromRow(this)">💾 Guardar stock</button>
-    </div>`;
-  }).join('');
+    const min=inv.min||0;
+    return{idx:i,n,e,s,stock,min,inv,low:min>0&&stock<=min,mid:min>0&&stock>min&&stock<=min*1.5};
+  });
 
-  // ── PRODUCTOS ──
-  const c2=document.getElementById('inv-prod-cards');
-  const all=[...cats.panes.map(n=>({n,t:'Pan'})),...cats.pasteles.map(n=>({n,t:'Pastel'}))];
-  c2.innerHTML=all.map(({n,t},i)=>{
+  // Construir datos productos
+  const allP=[...cats.panes.map(n=>({n,t:'Pan'})),...cats.pasteles.map(n=>({n,t:'Pastel'}))];
+  _invProdData=allP.map(({n,t},i)=>{
     const producido=prod.filter(r=>r.producto===n).reduce((s,r)=>s+r.neto,0);
     const despachado=sp.filter(r=>r.producto===n).reduce((s,r)=>s+r.cantidad,0);
     const inv=getInv('prod_'+n);
     const stock=(inv.si||0)+producido-despachado+(inv.aj||0);
-    return`<div class="inv-card" data-rowtype="prod" data-rowidx="${i}">
-      <div class="inv-card-header">
-        <span class="inv-card-name">${n}</span>
-        <span class="badge ${t==='Pan'?'bpan':'bpast'}">${t}</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:.78rem;margin-bottom:10px;text-align:center">
-        <div><div style="color:var(--gray);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Producido</div><b style="color:var(--green)">${producido}</b></div>
-        <div><div style="color:var(--gray);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Despachado</div><b style="color:var(--red)">${despachado}</b></div>
-        <div><div style="color:var(--gray);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Stock actual</div><b style="color:${stock<=0?'var(--red)':'var(--green)'}">${stock}</b></div>
-      </div>
-      <div class="inv-card-row">
-        <div class="fg"><label>Stock Inicial</label><input type="number" class="inv-mini-input inv-si" value="${inv.si||0}" min="0"></div>
-        <div class="fg"><label>Ajuste (±)</label><input type="number" class="inv-mini-input inv-aj" value="${inv.aj||0}"></div>
-      </div>
-      <button class="btn bp bsm inv-save-btn" style="width:100%;justify-content:center" onclick="saveInvFromRow(this)">💾 Guardar stock</button>
-    </div>`;
+    return{idx:i,n,t,producido,despachado,stock,inv,low:stock<=0};
+  });
+
+  // Badge de alertas
+  const lowCount=_invInsData.filter(x=>x.low).length;
+  const badge=document.getElementById('inv-ins-badge');
+  if(badge) badge.innerHTML=lowCount>0?`<span class="inv-count-badge">${lowCount}</span>`:'';
+
+  _renderInvIns();
+  _renderInvProd();
+}
+
+function _sortedIns(q){
+  let arr=[..._invInsData];
+  if(q){const lq=q.toLowerCase();arr=arr.filter(x=>x.n.toLowerCase().includes(lq));}
+  if(_invInsSort==='stock') arr.sort((a,b)=>a.stock-b.stock);
+  else arr.sort((a,b)=>a.n.localeCompare(b.n,'es'));
+  return arr;
+}
+function _sortedProd(q){
+  let arr=[..._invProdData];
+  if(q){const lq=q.toLowerCase();arr=arr.filter(x=>x.n.toLowerCase().includes(lq));}
+  if(_invProdSort==='stock') arr.sort((a,b)=>a.stock-b.stock);
+  else arr.sort((a,b)=>a.n.localeCompare(b.n,'es'));
+  return arr;
+}
+
+function _renderInvIns(){
+  const q=(document.getElementById('inv-ins-search')||{}).value||'';
+  const arr=_sortedIns(q);
+  const tb=document.getElementById('inv-ins-tbody');
+  if(!arr.length){tb.innerHTML=`<tr><td colspan="5" class="empty">Sin resultados</td></tr>`;return}
+  tb.innerHTML=arr.map(x=>{
+    const pct=x.min>0?Math.min(100,Math.round(x.stock/x.min*100)):null;
+    const barCls=pct===null?'':pct<=50?'low':pct<=100?'mid':'';
+    const barColor=barCls==='low'?'var(--red)':barCls==='mid'?'var(--gold)':'var(--green2)';
+    const stockCls=x.low?'inv-stock-low':x.mid?'inv-stock-mid':'inv-stock-ok';
+    const statusIcon=x.low?'🔴':x.mid?'🟡':'🟢';
+    return`<tr class="inv-summary-row${x.low?' low-row':''}" onclick="toggleInvEdit('ins','${x.idx}',this)">
+      <td><div class="inv-name-main">${x.n}</div></td>
+      <td style="text-align:center;color:var(--green);font-weight:600">${x.e}</td>
+      <td style="text-align:center;color:var(--red);font-weight:600">${x.s}</td>
+      <td style="text-align:center"><span class="inv-stock-val ${stockCls}">${x.stock}</span>${x.min>0?`<div style="font-size:.65rem;color:var(--gray)">mín ${x.min}</div>`:''}</td>
+      <td>${statusIcon} ${x.low?'<b style="color:var(--red);font-size:.75rem">Bajo mínimo</b>':x.mid?'<span style="color:var(--gold);font-size:.75rem">Por reponer</span>':'<span style="color:var(--green);font-size:.75rem">OK</span>'}
+        ${pct!==null?`<div class="inv-bar-sm"><div class="inv-bar-sm-fill" style="width:${pct}%;background:${barColor}"></div></div>`:''}
+      </td>
+    </tr>
+    <tr class="inv-edit-panel" id="inv-edit-ins-${x.idx}">
+      <td colspan="5">
+        <div class="inv-edit-inner" data-rowtype="ins" data-rowidx="${x.idx}">
+          <div class="fg"><label>Stock Inicial</label><input type="number" class="inv-mini-input inv-si" value="${x.inv.si||0}" min="0"></div>
+          <div class="fg"><label>Ajuste (±)</label><input type="number" class="inv-mini-input inv-aj" value="${x.inv.aj||0}"></div>
+          <div class="fg"><label>Mínimo</label><input type="number" class="inv-mini-input inv-mn" value="${x.min}" min="0"></div>
+          <button class="btn bp bsm" style="white-space:nowrap;align-self:flex-end" onclick="saveInvFromPanel(this)">💾 Guardar</button>
+        </div>
+      </td>
+    </tr>`;
   }).join('');
 }
 
-async function saveInvFromRow(btn){
-  const tr=btn.closest('[data-rowtype]');
-  const tipo=tr.dataset.rowtype;const idx=parseInt(tr.dataset.rowidx);
-  const inputs=tr.querySelectorAll('input[type="number"]');
+function _renderInvProd(){
+  const q=(document.getElementById('inv-prod-search')||{}).value||'';
+  const arr=_sortedProd(q);
+  const tb=document.getElementById('inv-prod-tbody');
+  if(!arr.length){tb.innerHTML=`<tr><td colspan="5" class="empty">Sin resultados</td></tr>`;return}
+  tb.innerHTML=arr.map(x=>{
+    const stockCls=x.low?'inv-stock-low':'inv-stock-ok';
+    return`<tr class="inv-summary-row${x.low?' low-row':''}" onclick="toggleInvEdit('prod','${x.idx}',this)">
+      <td><div class="inv-name-main">${x.n}</div></td>
+      <td style="text-align:center;color:var(--green);font-weight:600">${x.producido}</td>
+      <td style="text-align:center;color:var(--red);font-weight:600">${x.despachado}</td>
+      <td style="text-align:center"><span class="inv-stock-val ${stockCls}">${x.stock}</span></td>
+      <td><span class="badge ${x.t==='Pan'?'bpan':'bpast'}">${x.t}</span></td>
+    </tr>
+    <tr class="inv-edit-panel" id="inv-edit-prod-${x.idx}">
+      <td colspan="5">
+        <div class="inv-edit-inner" data-rowtype="prod" data-rowidx="${x.idx}">
+          <div class="fg"><label>Stock Inicial</label><input type="number" class="inv-mini-input inv-si" value="${x.inv.si||0}" min="0"></div>
+          <div class="fg"><label>Ajuste (±)</label><input type="number" class="inv-mini-input inv-aj" value="${x.inv.aj||0}"></div>
+          <button class="btn bp bsm" style="white-space:nowrap;align-self:flex-end" onclick="saveInvFromPanel(this)">💾 Guardar</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleInvEdit(tipo,idx,row){
+  // Viewer no puede abrir panel de edición
+  if(document.body.classList.contains('viewer-mode'))return;
+  // Si el click viene de dentro del panel, no cerrar
+  if(row.classList.contains('inv-summary-row')){
+    const panelId='inv-edit-'+tipo+'-'+idx;
+    const panel=document.getElementById(panelId);
+    if(!panel)return;
+    const isOpen=panel.classList.contains('open');
+    // Cerrar todos los paneles del mismo tbody
+    const tbody=row.closest('tbody');
+    tbody.querySelectorAll('.inv-edit-panel.open').forEach(p=>p.classList.remove('open'));
+    if(!isOpen) panel.classList.add('open');
+  }
+}
+
+function filterInv(tipo){
+  if(tipo==='ins') _renderInvIns();
+  else _renderInvProd();
+}
+
+function sortInv(tipo,mode){
+  if(tipo==='ins'){
+    _invInsSort=mode;
+    document.getElementById('inv-ins-sort-stock').classList.toggle('active',mode==='stock');
+    document.getElementById('inv-ins-sort-az').classList.toggle('active',mode==='az');
+    _renderInvIns();
+  } else {
+    _invProdSort=mode;
+    document.getElementById('inv-prod-sort-stock').classList.toggle('active',mode==='stock');
+    document.getElementById('inv-prod-sort-az').classList.toggle('active',mode==='az');
+    _renderInvProd();
+  }
+}
+
+async function saveInvFromPanel(btn){
+  const inner=btn.closest('[data-rowtype]');
+  const tipo=inner.dataset.rowtype;const idx=parseInt(inner.dataset.rowidx);
+  const inputs=inner.querySelectorAll('input[type="number"]');
   const si=parseFloat(inputs[0]?.value)||0;
   const aj=parseFloat(inputs[1]?.value)||0;
   const mn=tipo==='ins'?(parseFloat(inputs[2]?.value)||0):undefined;
@@ -1402,9 +1644,11 @@ async function saveInvFromRow(btn){
   if(ex)await dbPut('inventario',mergedTS);else await dbAdd('inventario',mergedTS);
   if(fsOnline){try{const{doc,setDoc}=window._fs;await setDoc(window._fs.doc(fsDb,'inventario',key),mergedTS,{merge:true});}catch(e){}}
   toast('✅ Stock guardado');
-  // Actualizar display en la card sin re-render completo
   await renderInv();
 }
+
+// Mantener compatibilidad con llamadas anteriores a saveInvFromRow
+async function saveInvFromRow(btn){ return saveInvFromPanel(btn); }
 
 // ════════════════════════════════════════════
 // MODAL EDICIÓN
@@ -1455,12 +1699,48 @@ async function del(store,id,cb){
 // ════════════════════════════════════════════
 // DASHBOARD
 // ════════════════════════════════════════════
+let _dashPeriodo='dia';
+function dashSetPeriodo(p){
+  _dashPeriodo=p;
+  ['dia','semana','mes'].forEach(x=>{
+    const b=document.getElementById('dash-btn-'+x);
+    if(b){b.style.border=x===p?'2px solid var(--orange)':'2px solid transparent';b.style.color=x===p?'var(--orange)':'var(--brown)';b.style.fontWeight=x===p?'700':'500';}
+  });
+  renderDash();
+}
+function dashIrHoy(){
+  document.getElementById('dash-fecha-input').value=hoy();
+  dashSetPeriodo('dia');
+}
+function _dashRango(){
+  const base=document.getElementById('dash-fecha-input').value||hoy();
+  if(_dashPeriodo==='dia') return{desde:base,hasta:base,lbl:new Date(base+'T12:00:00').toLocaleDateString('es-PE',{weekday:'long',day:'numeric',month:'long',year:'numeric'})};
+  const d=new Date(base+'T12:00:00');
+  if(_dashPeriodo==='semana'){
+    const dow=d.getDay();const lunes=new Date(d);lunes.setDate(d.getDate()-(dow===0?6:dow-1));
+    const domingo=new Date(lunes);domingo.setDate(lunes.getDate()+6);
+    const fmt2=x=>x.toISOString().split('T')[0];
+    return{desde:fmt2(lunes),hasta:fmt2(domingo),lbl:`Semana: ${lunes.toLocaleDateString('es-PE',{day:'numeric',month:'short'})} – ${domingo.toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'})}`};
+  }
+  if(_dashPeriodo==='mes'){
+    const desde=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+    const ultimo=new Date(d.getFullYear(),d.getMonth()+1,0);
+    const hasta=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(ultimo.getDate()).padStart(2,'0')}`;
+    return{desde,hasta,lbl:d.toLocaleDateString('es-PE',{month:'long',year:'numeric'})};
+  }
+}
 async function renderDash(){
-  const today=hoy();
+  if(!document.getElementById('dash-fecha-input').value) document.getElementById('dash-fecha-input').value=hoy();
+  const{desde,hasta,lbl}=_dashRango();
+  const inRango=fecha=>fecha>=desde&&fecha<=hasta;
   const[ent,salI,prod,sp,invR]=await Promise.all([dbAll('entradas'),dbAll('salidas_ins'),dbAll('produccion'),dbAll('salida_prod'),dbAll('inventario')]);
-  const entHoy=ent.filter(r=>r.fecha===today);const salIHoy=salI.filter(r=>r.fecha===today);
-  const prodHoy=prod.filter(r=>r.fecha===today);const spHoy=sp.filter(r=>r.fecha===today);
-  document.getElementById('dash-fecha').textContent=new Date().toLocaleDateString('es-PE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const entHoy=ent.filter(r=>inRango(r.fecha));const salIHoy=salI.filter(r=>inRango(r.fecha));
+  const prodHoy=prod.filter(r=>inRango(r.fecha));const spHoy=sp.filter(r=>inRango(r.fecha));
+  // Título y etiqueta de período
+  const periodoNombre=_dashPeriodo==='dia'?'Resumen del Día':_dashPeriodo==='semana'?'Resumen Semanal':'Resumen Mensual';
+  document.getElementById('dash-ptitle').textContent='📊 '+periodoNombre;
+  document.getElementById('dash-fecha').textContent=lbl.charAt(0).toUpperCase()+lbl.slice(1);
+  ['dash-lbl-periodo','dash-lbl-periodo2','dash-lbl-periodo3'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=_dashPeriodo==='dia'?'Hoy':_dashPeriodo==='semana'?'Esta Semana':'Este Mes'});
   document.getElementById('sgrid').innerHTML=`
     <div class="scard"><div class="slbl">Insumos Ingresados</div><div class="sval">${entHoy.reduce((s,r)=>s+r.cantidad,0)}</div><div class="ssub">${entHoy.length} línea(s)</div></div>
     <div class="scard gd"><div class="slbl">Insumos Usados</div><div class="sval">${salIHoy.reduce((s,r)=>s+r.cantidad,0)}</div><div class="ssub">${salIHoy.length} línea(s)</div></div>
@@ -1470,9 +1750,17 @@ async function renderDash(){
   entHoy.forEach(r=>{if(!insMap[r.insumo])insMap[r.insumo]={e:0,s:0};insMap[r.insumo].e+=r.cantidad});
   salIHoy.forEach(r=>{if(!insMap[r.insumo])insMap[r.insumo]={e:0,s:0};insMap[r.insumo].s+=r.cantidad});
   const t1=document.querySelector('#dash-ins-t tbody');const insKeys=Object.keys(insMap);
-  t1.innerHTML=insKeys.length?insKeys.map(n=>`<tr><td><b>${n}</b></td><td style="color:var(--green)">${insMap[n].e}</td><td style="color:var(--red)">${insMap[n].s}</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin movimientos hoy</td></tr>`;
-  document.querySelector('#dash-prod-t tbody').innerHTML=prodHoy.length?prodHoy.map(r=>`<tr><td>${r.producto}</td><td><span class="badge ${r.tipo==='pan'?'bpan':'bpast'}">${r.tipo==='pan'?'Pan':'Pastel'}</span></td><td><b>${r.neto}</b></td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin producción hoy</td></tr>`;
-  document.querySelector('#dash-sal-t tbody').innerHTML=spHoy.length?spHoy.map(r=>`<tr><td>${r.producto}</td><td>${r.cantidad}</td><td>${r.destino||'—'}</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin salidas hoy</td></tr>`;
+  t1.innerHTML=insKeys.length?insKeys.map(n=>`<tr><td><b>${n}</b></td><td style="color:var(--green)">${insMap[n].e}</td><td style="color:var(--red)">${insMap[n].s}</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin movimientos</td></tr>`;
+  // Producción agrupada por producto en semana/mes
+  if(_dashPeriodo!=='dia'){
+    const prodMap={};prodHoy.forEach(r=>{if(!prodMap[r.producto])prodMap[r.producto]={tipo:r.tipo,neto:0};prodMap[r.producto].neto+=r.neto});
+    document.querySelector('#dash-prod-t tbody').innerHTML=Object.keys(prodMap).length?Object.entries(prodMap).map(([p,v])=>`<tr><td>${p}</td><td><span class="badge ${v.tipo==='pan'?'bpan':'bpast'}">${v.tipo==='pan'?'Pan':'Pastel'}</span></td><td><b>${v.neto}</b></td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin producción</td></tr>`;
+    const salMap={};spHoy.forEach(r=>{if(!salMap[r.producto])salMap[r.producto]={cant:0};salMap[r.producto].cant+=r.cantidad});
+    document.querySelector('#dash-sal-t tbody').innerHTML=Object.keys(salMap).length?Object.entries(salMap).map(([p,v])=>`<tr><td>${p}</td><td>${v.cant}</td><td>—</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin salidas</td></tr>`;
+  }else{
+    document.querySelector('#dash-prod-t tbody').innerHTML=prodHoy.length?prodHoy.map(r=>`<tr><td>${r.producto}</td><td><span class="badge ${r.tipo==='pan'?'bpan':'bpast'}">${r.tipo==='pan'?'Pan':'Pastel'}</span></td><td><b>${r.neto}</b></td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin producción hoy</td></tr>`;
+    document.querySelector('#dash-sal-t tbody').innerHTML=spHoy.length?spHoy.map(r=>`<tr><td>${r.producto}</td><td>${r.cantidad}</td><td>${r.destino||'—'}</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin salidas hoy</td></tr>`;
+  }
   const getInvL=key=>{const r=invR.find(r=>r.key===key);return r||{si:0,aj:0,min:0}};
   const criticos=cats.insumos.map(n=>{
     const e=ent.filter(r=>r.insumo===n).reduce((s,r)=>s+r.cantidad,0);
