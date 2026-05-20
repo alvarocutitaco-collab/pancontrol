@@ -489,6 +489,7 @@ body.viewer-mode .cat-item input{
 }
 /* Catálogos — viewer: ocultar secciones de agregar encargados/destinos */
 body.viewer-mode .add-item-row{display:none!important}
+body.viewer-mode .cat-add-row{display:none!important}
 
 /* ════════════════════════════════════════════
    DASHBOARD ESPECÍFICO
@@ -520,21 +521,33 @@ body.viewer-mode .add-item-row{display:none!important}
   font-size:.95rem;padding-bottom:10px;
   border-bottom:2px solid var(--cream2);margin-bottom:12px;
 }
+.cat-items-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:4px 8px;
+}
+@media(min-width:480px){
+  .cat-items-grid{grid-template-columns:1fr 1fr 1fr}
+}
 .cat-item{
-  display:flex;align-items:center;gap:8px;
-  padding:6px 0;border-bottom:1px solid var(--cream2);
-  font-size:.85rem;
+  display:flex;align-items:center;gap:5px;
+  padding:4px 6px;
+  border:1px solid var(--cream2);
+  border-radius:6px;
+  background:var(--cream);
+  font-size:.82rem;
+  min-width:0;
 }
 .cat-item input{
   flex:1;border:none;background:transparent;
-  font-family:'DM Sans',sans-serif;font-size:.85rem;
-  color:var(--brown);outline:none;padding:2px 4px;
-  border-radius:4px;
+  font-family:'DM Sans',sans-serif;font-size:.78rem;
+  color:var(--brown);outline:none;padding:1px 2px;
+  border-radius:4px;min-width:0;
 }
-.cat-item input:focus{background:var(--cream);padding:2px 8px}
+.cat-item input:focus{background:#fff;padding:1px 6px}
 .cat-item-num{
-  color:var(--gray);font-size:.7rem;
-  width:20px;text-align:right;flex-shrink:0;
+  color:var(--gray);font-size:.65rem;
+  width:16px;text-align:right;flex-shrink:0;
 }
 .add-item-row{
   display:flex;gap:8px;margin-top:10px;
@@ -1253,14 +1266,38 @@ async function loadCats(){
 }
 function renderCats(){
   const g=document.getElementById('cat-grid');
-  const sec=(key,lbl,color)=>`<div class="cat-section">
+  const isViewer=document.body.classList.contains('viewer-mode');
+  const sec=(key,lbl,color,inputId)=>`<div class="cat-section">
     <div class="cat-title" style="color:${color}">${lbl}</div>
-    ${cats[key].map((n,i)=>`<div class="cat-item">
-      <span class="cat-item-num">${i+1}</span>
-      <input type="text" value="${n}" data-cat="${key}" data-i="${i}" onchange="cats['${key}'][${i}]=this.value">
-    </div>`).join('')}
+    <div class="cat-items-grid">
+      ${cats[key].map((n,i)=>`<div class="cat-item">
+        <span class="cat-item-num">${i+1}</span>
+        <input type="text" value="${n}" data-cat="${key}" data-i="${i}" onchange="cats['${key}'][${i}]=this.value">
+        ${isViewer?'':'<button onclick="quitarCatItem(\''+key+'\','+i+')" style="border:none;background:none;color:var(--gray);cursor:pointer;font-size:.7rem;padding:0 2px;flex-shrink:0;line-height:1" title="Quitar">✕</button>'}
+      </div>`).join('')}
+    </div>
+    ${isViewer?'':'<div class="add-item-row cat-add-row"><input class="add-item-input" type="text" id="'+inputId+'" placeholder="Nuevo elemento..."><button class="add-item-btn" style="background:'+color+'" onclick="agregarCatItem(\''+key+'\',\''+inputId+'\')">+ Agregar</button></div>'}
   </div>`;
-  g.innerHTML=sec('insumos','🌾 Insumos / Materia Prima','var(--orange)')+sec('panes','🍞 Tipos de Pan','var(--brown)')+sec('pasteles','🎂 Pasteles / Repostería','var(--green)');
+  g.innerHTML=sec('insumos','🌾 Insumos / Materia Prima','var(--orange)','new-insumo')
+             +sec('panes','🍞 Tipos de Pan','var(--brown)','new-pan')
+             +sec('pasteles','🎂 Pasteles / Repostería','var(--green)','new-pastel');
+}
+function quitarCatItem(key,idx){
+  const nombre=cats[key][idx];
+  if(!confirm(`¿Eliminar "${nombre}" del catálogo?`))return;
+  cats[key].splice(idx,1);
+  renderCats();
+  toast(`🗑 "${nombre}" eliminado — guarda catálogos`,'var(--red)');
+}
+function agregarCatItem(key,inputId){
+  const inp=document.getElementById(inputId);
+  const val=(inp?.value||'').trim();
+  if(!val){toast('⚠ Escribe un nombre','var(--red)');return}
+  if(cats[key].includes(val)){toast('⚠ Ya existe en el catálogo','var(--gold)');return}
+  cats[key].push(val);
+  inp.value='';
+  renderCats();
+  toast(`✅ "${val}" agregado — guarda catálogos`);
 }
 async function saveCatalogos(){
   const rows=await dbAll('catalogos');
