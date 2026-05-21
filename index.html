@@ -1206,7 +1206,7 @@ function dbDel(s,id){return new Promise((res,rej)=>{const t=db.transaction(s,'re
 // ════════════════════════════════════════════
 // UTILIDADES
 // ════════════════════════════════════════════
-function hoy(){return new Date().toISOString().split('T')[0]}
+function hoy(){return new Date().toLocaleDateString('en-CA',{timeZone:'America/Lima'})}
 function fmt(d){if(!d)return'';const[y,m,day]=d.split('-');return`${day}/${m}/${y}`}
 function toast(msg,c='var(--green)'){const t=document.getElementById('toast');t.textContent=msg;t.style.background=c;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
 function v(id){return(document.getElementById(id)||{}).value||''}
@@ -1855,7 +1855,7 @@ async function init(){
   await openDB();await loadCats();
   setHoy('ent-fecha','sal-ins-fecha','pp-fecha','pa-fecha','sp-fecha');
   renderDash();renderEntradas();renderSalidasIns();renderProd();renderSalidaProd();
-  const dateStr=new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'numeric'});
+  const dateStr=new Date().toLocaleDateString('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'short',year:'numeric'});
   const sdDate=document.getElementById('sd-date');if(sdDate)sdDate.textContent=dateStr;
   addLineaEntrada();addLineaSalidaIns();
   initFirebase();
