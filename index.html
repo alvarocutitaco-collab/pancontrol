@@ -1206,7 +1206,7 @@ function dbDel(s,id){return new Promise((res,rej)=>{const t=db.transaction(s,'re
 // ════════════════════════════════════════════
 // UTILIDADES
 // ════════════════════════════════════════════
-function hoy(){return new Date().toLocaleDateString('en-CA',{timeZone:'America/Lima'})}
+function hoy(){return new Date().toISOString().split('T')[0]}
 function fmt(d){if(!d)return'';const[y,m,day]=d.split('-');return`${day}/${m}/${y}`}
 function toast(msg,c='var(--green)'){const t=document.getElementById('toast');t.textContent=msg;t.style.background=c;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
 function v(id){return(document.getElementById(id)||{}).value||''}
