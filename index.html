@@ -545,6 +545,11 @@ body.viewer-mode .cat-add-row{display:none!important}
   border-radius:4px;min-width:0;
 }
 .cat-item input:focus{background:#fff;padding:1px 6px}
+.cat-item input[data-cat-unit]{
+  flex:.7;color:var(--brown2);
+  border-left:1px solid var(--cream3);
+  padding-left:6px;
+}
 .cat-item-num{
   color:var(--gray);font-size:.65rem;
   width:16px;text-align:right;flex-shrink:0;
@@ -833,8 +838,8 @@ body.viewer-mode .cat-add-row{display:none!important}
       <div class="fgrid">
         <div class="fg"><label>Fecha</label><input type="date" id="pp-fecha"></div>
         <div class="fg"><label>Turno</label><select id="pp-turno"><option value="">Seleccionar...</option><option>Mañana</option><option>Tarde</option><option>Noche</option></select></div>
-        <div class="fg"><label>Tipo de Pan</label><select id="pp-tipo"><option value="">Seleccionar...</option></select></div>
-        <div class="fg"><label>Unidad</label><select id="pp-und"><option value="">Seleccionar...</option><option>unidad</option><option>plancha</option><option>docena</option><option>bandeja</option><option>caja</option><option>lata</option><option>kilogramo</option></select></div>
+        <div class="fg"><label>Tipo de Pan</label><select id="pp-tipo" onchange="updateCatalogUnitSelect('panes',this.value,'pp-und')"><option value="">Seleccionar...</option></select></div>
+        <div class="fg"><label>Unidad</label><select id="pp-und"><option value="">Selecciona producto...</option></select></div>
         <div class="fg"><label>Cant. Producida</label><input type="number" id="pp-cant" min="0" placeholder="0"></div>
         <div class="fg"><label>Cant. Defectuosa</label><input type="number" id="pp-def" min="0" placeholder="0"></div>
         <div class="fg fgrid one"><label>Observaciones</label><input type="text" id="pp-obs" placeholder="Opcional"></div>
@@ -856,8 +861,8 @@ body.viewer-mode .cat-add-row{display:none!important}
       <div class="fgrid">
         <div class="fg"><label>Fecha</label><input type="date" id="pa-fecha"></div>
         <div class="fg"><label>Turno</label><select id="pa-turno"><option value="">Seleccionar...</option><option>Mañana</option><option>Tarde</option><option>Noche</option></select></div>
-        <div class="fg"><label>Tipo de Pastel</label><select id="pa-tipo"><option value="">Seleccionar...</option></select></div>
-        <div class="fg"><label>Unidad</label><select id="pa-und"><option value="">Seleccionar...</option><option>unidad</option><option>pastel entero</option><option>docena</option><option>bandeja</option><option>caja</option><option>kilogramo</option></select></div>
+        <div class="fg"><label>Tipo de Pastel</label><select id="pa-tipo" onchange="updateCatalogUnitSelect('pasteles',this.value,'pa-und')"><option value="">Seleccionar...</option></select></div>
+        <div class="fg"><label>Unidad</label><select id="pa-und"><option value="">Selecciona producto...</option></select></div>
         <div class="fg"><label>Cant. Producida</label><input type="number" id="pa-cant" min="0" placeholder="0"></div>
         <div class="fg"><label>Cant. Defectuosa</label><input type="number" id="pa-def" min="0" placeholder="0"></div>
         <div class="fg fgrid one"><label>Observaciones</label><input type="text" id="pa-obs" placeholder="Opcional"></div>
@@ -884,8 +889,8 @@ body.viewer-mode .cat-add-row{display:none!important}
     <div class="fgrid">
       <div class="fg"><label>Fecha</label><input type="date" id="sp-fecha"></div>
       <div class="fg"><label>Categoría</label><select id="sp-cat" onchange="fillProdSelect()"><option value="">Seleccionar...</option><option>Panes</option><option>Pasteles</option></select></div>
-      <div class="fg"><label>Producto</label><select id="sp-prod"><option value="">Seleccionar categoría...</option></select></div>
-      <div class="fg"><label>Unidad</label><select id="sp-und"><option value="">Seleccionar...</option><option>unidad</option><option>plancha</option><option>pastel entero</option><option>docena</option><option>bandeja</option><option>caja</option><option>paquete</option><option>lata</option><option>jaba</option><option>kilogramo</option></select></div>
+      <div class="fg"><label>Producto</label><select id="sp-prod" onchange="updateSalidaUnitSelect()"><option value="">Seleccionar categoría...</option></select></div>
+      <div class="fg"><label>Unidad</label><select id="sp-und"><option value="">Selecciona producto...</option></select></div>
       <div class="fg"><label>Cantidad</label><input type="number" id="sp-cant" min="0" placeholder="0"></div>
       <div class="fg"><label>Destino / Cliente</label><select id="sp-dest"><option value="">Seleccionar...</option></select></div>
       <div class="fg"><label>N° Boleta/Factura</label><input type="text" id="sp-doc" placeholder="001-00045"></div>
@@ -1130,7 +1135,7 @@ function setupRealtimeListeners(){
   });
   const unsubCat=onSnapshot(window._fs.doc(fsDb,'config','catalogos'),async snap=>{
     if(!snap.exists())return;const data=snap.data();
-    const newCats={insumos:data.insumos||DEF.insumos,panes:data.panes||DEF.panes,pasteles:data.pasteles||DEF.pasteles,encargados:data.encargados||cats.encargados||DEF.encargados,destinos:data.destinos||cats.destinos||DEF.destinos};
+    const newCats=normalizeCats({...data,insumos:data.insumos||DEF.insumos,panes:data.panes||DEF.panes,pasteles:data.pasteles||DEF.pasteles,encargados:data.encargados||cats.encargados||DEF.encargados,destinos:data.destinos||cats.destinos||DEF.destinos});
     if(JSON.stringify(newCats)!==JSON.stringify(cats)){
       cats=newCats;const rows=await dbAll('catalogos');const rec={...newCats};
       if(rows.length){rec.id=rows[rows.length-1].id;await dbPut('catalogos',rec);}else await dbAdd('catalogos',rec);
@@ -1169,7 +1174,7 @@ async function syncFromCloud(){
     }
     const cfgSnap=await getDocs(collection(fsDb,'config'));
     for(const d of cfgSnap.docs){
-      if(d.id==='catalogos'){const data=d.data();const catRows=await dbAll('catalogos');const rec={insumos:data.insumos||DEF.insumos,panes:data.panes||DEF.panes,pasteles:data.pasteles||DEF.pasteles,encargados:data.encargados||cats.encargados||DEF.encargados,destinos:data.destinos||cats.destinos||DEF.destinos};
+      if(d.id==='catalogos'){const data=d.data();const catRows=await dbAll('catalogos');const rec=normalizeCats({insumos:data.insumos||DEF.insumos,panes:data.panes||DEF.panes,pasteles:data.pasteles||DEF.pasteles,encargados:data.encargados||cats.encargados||DEF.encargados,destinos:data.destinos||cats.destinos||DEF.destinos,unidades:data.unidades});
         if(catRows.length){rec.id=catRows[catRows.length-1].id;await dbPut('catalogos',rec);}else await dbAdd('catalogos',rec);cats=rec;fillSelects();}
     }
     setSyncUI('ok','Sincronizado ✓');
@@ -1191,6 +1196,67 @@ const DEF={
   panes:Array.from({length:20},(_,i)=>["Pan francés","Pan de molde","Pan integral","Pan ciabatta","Pan brioche","Pan de leche","Pan especial","Pan tipo 8","Pan tipo 9","Pan tipo 10"][i]||`Pan tipo ${i+1}`),
   pasteles:Array.from({length:30},(_,i)=>["Torta de cumpleaños","Cupcake","Pie de manzana","Croissant","Empanada dulce","Cheesecake","Brownie","Muffin","Pastel de hojaldre","Producto especial","Pastel tipo 11","Pastel tipo 12","Pastel tipo 13","Pastel tipo 14","Pastel tipo 15"][i]||`Pastel tipo ${i+1}`)
 };
+const UNIT_LIST=['unidad','porcion','kilogramo','gramo','litro','mililitro','docena','jaba','caja','bolsa','paquete','bandeja','plancha','lata','balde','casillero','pastel entero'];
+function escAttr(v){return String(v??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function normalizeUnitList(value){
+  const arr=Array.isArray(value)?value:String(value||'').split(',');
+  return [...new Set(arr.map(u=>String(u||'').trim()).filter(Boolean))];
+}
+function defaultUnitFor(key,name=''){
+  const n=String(name).toLowerCase();
+  if(key==='insumos'){
+    if(/leche|aceite|vainilla|agua|crema/.test(n))return 'litro';
+    if(/huevo/.test(n))return 'unidad';
+    if(/harina|azucar|azúcar|azÃºcar|sal|cacao|polvo|manteca|mantequilla/.test(n))return 'kilogramo';
+  }
+  return 'unidad';
+}
+function normalizeCats(src={}){
+  const out={
+    encargados:src.encargados||DEF.encargados,
+    destinos:src.destinos||DEF.destinos,
+    insumos:(src.insumos||DEF.insumos).map(x=>typeof x==='string'?x:(x.nombre||x.name||'')),
+    panes:(src.panes||DEF.panes).map(x=>typeof x==='string'?x:(x.nombre||x.name||'')),
+    pasteles:(src.pasteles||DEF.pasteles).map(x=>typeof x==='string'?x:(x.nombre||x.name||'')),
+    unidades:{insumos:{},panes:{},pasteles:{}}
+  };
+  ['insumos','panes','pasteles'].forEach(key=>{
+    (src[key]||[]).forEach(x=>{if(typeof x==='object'&&x){const nombre=x.nombre||x.name;if(nombre)out.unidades[key][nombre]=normalizeUnitList(x.unidad||x.unidades||x.unit||x.units)}});
+    const map=src.unidades?.[key]||src.units?.[key]||{};
+    Object.keys(map).forEach(nombre=>{out.unidades[key][nombre]=normalizeUnitList(map[nombre])});
+    out[key].forEach(nombre=>{if(!out.unidades[key][nombre]?.length)out.unidades[key][nombre]=[defaultUnitFor(key,nombre)]});
+  });
+  return out;
+}
+function getCatalogUnits(key,name){return normalizeUnitList(cats.unidades?.[key]?.[name]).length?normalizeUnitList(cats.unidades[key][name]):[defaultUnitFor(key,name)]}
+function setCatalogUnits(key,name,value){if(!cats.unidades)cats.unidades={insumos:{},panes:{},pasteles:{}};if(!cats.unidades[key])cats.unidades[key]={};cats.unidades[key][name]=normalizeUnitList(value).length?normalizeUnitList(value):[defaultUnitFor(key,name)]}
+function renameCatItem(key,idx,value){
+  const oldName=cats[key][idx],newName=(value||'').trim()||oldName;
+  cats[key][idx]=newName;
+  if(oldName!==newName&&cats.unidades?.[key]){
+    cats.unidades[key][newName]=cats.unidades[key][oldName]||[defaultUnitFor(key,newName)];
+    delete cats.unidades[key][oldName];
+  }
+}
+function fillUnitSelect(select,key,name,current=''){
+  if(!select)return;
+  if(!name){select.innerHTML='<option value="">Selecciona producto...</option>';return}
+  const units=getCatalogUnits(key,name);
+  select.innerHTML=units.map(u=>`<option${u===current?' selected':''}>${escAttr(u)}</option>`).join('');
+  if(current&&!units.includes(current))select.insertAdjacentHTML('afterbegin',`<option selected>${escAttr(current)}</option>`);
+}
+function updateCatalogUnitSelect(key,name,selectId){fillUnitSelect(document.getElementById(selectId),key,name)}
+function updateSalidaUnitSelect(){
+  const key=v('sp-cat')==='Panes'?'panes':(v('sp-cat')==='Pasteles'?'pasteles':'');
+  fillUnitSelect(document.getElementById('sp-und'),key,v('sp-prod'));
+}
+function updateInsumoLineUnit(select){
+  const row=select.closest('.row-ins');
+  fillUnitSelect(row?.querySelector('.lu'),'insumos',select.value);
+}
+function catalogUnitInput(key,name){
+  return `<input type="text" list="unit-options" value="${escAttr(getCatalogUnits(key,name).join(', '))}" data-cat-unit="${key}" data-unit-name="${escAttr(name)}" onchange="setCatalogUnits('${key}',this.dataset.unitName,this.value)" placeholder="Unidad">`;
+}
 function openDB(){
   return new Promise((res,rej)=>{
     const r=indexedDB.open(DB,VER);
@@ -1260,8 +1326,8 @@ function switchTab(pre,tab,el){
 // ════════════════════════════════════════════
 async function loadCats(){
   const rows=await dbAll('catalogos');
-  if(rows.length){const s=rows[rows.length-1];cats={encargados:s.encargados||DEF.encargados,destinos:s.destinos||DEF.destinos,insumos:s.insumos||DEF.insumos,panes:s.panes||DEF.panes,pasteles:s.pasteles||DEF.pasteles}}
-  else cats=JSON.parse(JSON.stringify(DEF));
+  if(rows.length){const s=rows[rows.length-1];cats=normalizeCats(s)}
+  else cats=normalizeCats(DEF);
   renderCats();fillSelects();
 }
 function renderCats(){
@@ -1272,13 +1338,15 @@ function renderCats(){
     <div class="cat-items-grid">
       ${cats[key].map((n,i)=>`<div class="cat-item">
         <span class="cat-item-num">${i+1}</span>
-        <input type="text" value="${n}" data-cat="${key}" data-i="${i}" onchange="cats['${key}'][${i}]=this.value">
+        <input type="text" value="${escAttr(n)}" data-cat="${key}" data-i="${i}" onchange="renameCatItem('${key}',${i},this.value);renderCats()">
+        ${catalogUnitInput(key,n)}
         ${isViewer?'':'<button onclick="quitarCatItem(\''+key+'\','+i+')" style="border:none;background:none;color:var(--gray);cursor:pointer;font-size:.7rem;padding:0 2px;flex-shrink:0;line-height:1" title="Quitar">✕</button>'}
       </div>`).join('')}
     </div>
-    ${isViewer?'':'<div class="add-item-row cat-add-row"><input class="add-item-input" type="text" id="'+inputId+'" placeholder="Nuevo elemento..."><button class="add-item-btn" style="background:'+color+'" onclick="agregarCatItem(\''+key+'\',\''+inputId+'\')">+ Agregar</button></div>'}
+    ${isViewer?'':'<div class="add-item-row cat-add-row"><input class="add-item-input" type="text" id="'+inputId+'" placeholder="Nuevo elemento..."><input class="add-item-input" type="text" list="unit-options" id="'+inputId+'-unidad" placeholder="Unidad..."><button class="add-item-btn" style="background:'+color+'" onclick="agregarCatItem(\''+key+'\',\''+inputId+'\')">+ Agregar</button></div>'}
   </div>`;
-  g.innerHTML=sec('insumos','🌾 Insumos / Materia Prima','var(--orange)','new-insumo')
+  g.innerHTML='<datalist id="unit-options">'+UNIT_LIST.map(u=>`<option value="${escAttr(u)}"></option>`).join('')+'</datalist>'
+             +sec('insumos','🌾 Insumos / Materia Prima','var(--orange)','new-insumo')
              +sec('panes','🍞 Tipos de Pan','var(--brown)','new-pan')
              +sec('pasteles','🎂 Pasteles / Repostería','var(--green)','new-pastel');
 }
@@ -1286,6 +1354,7 @@ function quitarCatItem(key,idx){
   const nombre=cats[key][idx];
   if(!confirm(`¿Eliminar "${nombre}" del catálogo?`))return;
   cats[key].splice(idx,1);
+  if(cats.unidades?.[key])delete cats.unidades[key][nombre];
   renderCats();
   toast(`🗑 "${nombre}" eliminado — guarda catálogos`,'var(--red)');
 }
@@ -1294,14 +1363,17 @@ function agregarCatItem(key,inputId){
   const val=(inp?.value||'').trim();
   if(!val){toast('⚠ Escribe un nombre','var(--red)');return}
   if(cats[key].includes(val)){toast('⚠ Ya existe en el catálogo','var(--gold)');return}
+  const unidad=(document.getElementById(inputId+'-unidad')?.value||'').trim();
   cats[key].push(val);
+  setCatalogUnits(key,val,unidad||defaultUnitFor(key,val));
   inp.value='';
+  const unitInp=document.getElementById(inputId+'-unidad');if(unitInp)unitInp.value='';
   renderCats();
   toast(`✅ "${val}" agregado — guarda catálogos`);
 }
 async function saveCatalogos(){
   const rows=await dbAll('catalogos');
-  const rec={encargados:cats.encargados||[],destinos:cats.destinos||[],insumos:cats.insumos,panes:cats.panes,pasteles:cats.pasteles};
+  const rec={encargados:cats.encargados||[],destinos:cats.destinos||[],insumos:cats.insumos,panes:cats.panes,pasteles:cats.pasteles,unidades:cats.unidades||{insumos:{},panes:{},pasteles:{}}};
   if(rows.length){rec.id=rows[rows.length-1].id;await dbPut('catalogos',rec)}else await dbAdd('catalogos',rec);
   await cloudSaveCats(rec);fillSelects();toast('✅ Catálogos guardados');
 }
@@ -1309,6 +1381,9 @@ function fillSelects(){
   const mkOpts=arr=>'<option value="">Seleccionar...</option>'+arr.map(n=>`<option>${n}</option>`).join('');
   document.getElementById('pp-tipo').innerHTML=mkOpts(cats.panes);
   document.getElementById('pa-tipo').innerHTML=mkOpts(cats.pasteles);
+  updateCatalogUnitSelect('panes',v('pp-tipo'),'pp-und');
+  updateCatalogUnitSelect('pasteles',v('pa-tipo'),'pa-und');
+  updateSalidaUnitSelect();
   fillEncargados();renderListaEncargados();fillDestinos();renderListaDestinos();
 }
 function fillEncargados(){
@@ -1353,8 +1428,9 @@ function quitarEncargado(idx){
 }
 function fillProdSelect(){
   const cat=v('sp-cat'),s=document.getElementById('sp-prod');
-  if(!cat){s.innerHTML='<option value="">Seleccionar categoría...</option>';return}
+  if(!cat){s.innerHTML='<option value="">Seleccionar categoría...</option>';updateSalidaUnitSelect();return}
   s.innerHTML='<option value="">Seleccionar...</option>'+(cat==='Panes'?cats.panes:cats.pasteles).map(n=>`<option>${n}</option>`).join('');
+  updateSalidaUnitSelect();
 }
 
 // ════════════════════════════════════════════
@@ -1362,12 +1438,11 @@ function fillProdSelect(){
 // ════════════════════════════════════════════
 let lineaEntCnt=0,lineaSalCnt=0;
 function mkInsLine(uid,containerId,showPrecio){
-  const un=['kilogramo','litro','mililitro','balde','casillero'].map(u=>`<option>${u}</option>`).join('');
   const ins=cats.insumos.map(n=>`<option>${n}</option>`).join('');
   return`<div class="row-ins" id="${containerId}-line-${uid}">
     <div class="fgrid">
-      <div class="fg"><label>Insumo</label><select class="li"><option value="">Seleccionar...</option>${ins}</select></div>
-      <div class="fg"><label>Unidad</label><select class="lu"><option value="">Seleccionar...</option>${un}</select></div>
+      <div class="fg"><label>Insumo</label><select class="li" onchange="updateInsumoLineUnit(this)"><option value="">Seleccionar...</option>${ins}</select></div>
+      <div class="fg"><label>Unidad</label><select class="lu"><option value="">Selecciona insumo...</option></select></div>
       <div class="fg"><label>Cantidad</label><input type="number" class="lc" min="0" placeholder="0"></div>
       ${showPrecio?`<div class="fg"><label>Precio Unit.</label><input type="number" class="lp" min="0" step="0.01" placeholder="0.00"></div>`:''}
       <div class="fg"><label>Obs.</label><input type="text" class="lo" placeholder="Opcional"></div>
@@ -1465,6 +1540,7 @@ async function guardarProd(tipo){
   const data={tipo,fecha:v(pre+'-fecha')||hoy(),turno:v(pre+'-turno'),producto:v(pre+'-tipo'),unidad:v(pre+'-und'),cantidad:cant,defectuosa:def,neto:cant-def,obs:v(pre+'-obs')};
   const id=await dbAdd('produccion',data);await cloudAdd('produccion',id,data);
   [pre+'-turno',pre+'-tipo',pre+'-und',pre+'-cant',pre+'-def',pre+'-obs'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
+  updateCatalogUnitSelect(tipo==='pan'?'panes':'pasteles','',pre+'-und');
   toast('✅ Producción registrada');renderProd();
 }
 async function renderProd(){
@@ -1496,6 +1572,7 @@ async function guardarSalidaProd(){
   const data={fecha:v('sp-fecha')||hoy(),categoria:v('sp-cat'),producto:v('sp-prod'),unidad:v('sp-und'),cantidad:parseFloat(v('sp-cant'))||0,destino:v('sp-dest'),encargado:v('sp-encargado'),documento:v('sp-doc'),obs:v('sp-obs')};
   const id=await dbAdd('salida_prod',data);await cloudAdd('salida_prod',id,data);
   ['sp-cat','sp-prod','sp-und','sp-cant','sp-dest','sp-encargado','sp-doc','sp-obs'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
+  updateSalidaUnitSelect();
   toast('✅ Salida registrada');renderSalidaProd();fillProdSelect();
 }
 async function renderSalidaProd(){
@@ -1691,6 +1768,12 @@ async function saveInvFromRow(btn){ return saveInvFromPanel(btn); }
 // MODAL EDICIÓN
 // ════════════════════════════════════════════
 const UND_PROD=['unidad','plancha','pastel entero','docena','bandeja','caja','paquete','lata','jaba','kilogramo'];
+function unitOptionsForRecord(store,rec){
+  if(store==='entradas'||store==='salidas_ins')return getCatalogUnits('insumos',rec.insumo);
+  if(store==='produccion')return getCatalogUnits(rec.tipo==='pastel'?'pasteles':'panes',rec.producto);
+  if(store==='salida_prod')return getCatalogUnits(rec.categoria==='Pasteles'?'pasteles':'panes',rec.producto);
+  return [];
+}
 const FIELDS={
   entradas:[{k:'fecha',l:'Fecha',t:'date'},{k:'tipodoc',l:'Tipo Doc.',t:'sel',opts:['Boleta','Factura','Otro']},{k:'numdoc',l:'N° Documento',t:'text'},{k:'insumo',l:'Insumo',t:'selCat',cat:'insumos'},{k:'unidad',l:'Unidad',t:'sel',opts:['kilogramo','litro','mililitro','balde','casillero']},{k:'cantidad',l:'Cantidad',t:'num'},{k:'precio',l:'Precio Unit.',t:'num'},{k:'proveedor',l:'Proveedor',t:'text'},{k:'obs',l:'Obs.',t:'text'}],
   salidas_ins:[{k:'fecha',l:'Fecha',t:'date'},{k:'motivo',l:'Motivo',t:'sel',opts:['Usado en Producción','Merma / Pérdida','Devolución','Otro']},{k:'ticket',l:'Ticket',t:'text'},{k:'insumo',l:'Insumo',t:'selCat',cat:'insumos'},{k:'unidad',l:'Unidad',t:'sel',opts:['kilogramo','litro','mililitro','balde','casillero']},{k:'cantidad',l:'Cantidad',t:'num'},{k:'obs',l:'Obs.',t:'text'}],
@@ -1703,7 +1786,7 @@ async function openEdit(store,id){
   document.getElementById('modal-title').textContent='Editar Registro';
   document.getElementById('modal-fields').innerHTML=fields.map(f=>{
     let inp;
-    if(f.t==='sel'||f.t==='selCat'){const opts=(f.t==='selCat'?cats[f.cat]:f.opts).map(o=>`<option${o==rec[f.k]?' selected':''}>${o}</option>`).join('');inp=`<select id="ef-${f.k}"><option value="">${rec[f.k]||''}</option>${opts}</select>`;}
+    if(f.t==='sel'||f.t==='selCat'){const list=f.k==='unidad'?unitOptionsForRecord(store,rec):(f.t==='selCat'?cats[f.cat]:f.opts);const opts=list.map(o=>`<option${o==rec[f.k]?' selected':''}>${o}</option>`).join('');inp=`<select id="ef-${f.k}"><option value="">${rec[f.k]||''}</option>${opts}</select>`;}
     else if(f.t==='num')inp=`<input type="number" id="ef-${f.k}" value="${rec[f.k]||0}" min="0" step="0.01">`;
     else if(f.t==='date')inp=`<input type="date" id="ef-${f.k}" value="${rec[f.k]||''}">`;
     else inp=`<input type="text" id="ef-${f.k}" value="${rec[f.k]||''}">`;
