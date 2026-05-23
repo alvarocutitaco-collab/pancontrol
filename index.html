@@ -523,11 +523,11 @@ body.viewer-mode .cat-add-row{display:none!important}
 }
 .cat-items-grid{
   display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:4px 8px;
+  grid-template-columns:1fr;
+  gap:8px;
 }
-@media(min-width:480px){
-  .cat-items-grid{grid-template-columns:1fr 1fr 1fr}
+@media(min-width:720px){
+  .cat-items-grid{grid-template-columns:1fr 1fr}
 }
 .cat-item{
   display:flex;align-items:center;gap:5px;
@@ -549,6 +549,26 @@ body.viewer-mode .cat-add-row{display:none!important}
   flex:.7;color:var(--brown2);
   border-left:1px solid var(--cream3);
   padding-left:6px;
+}
+.cat-unit-card{
+  display:grid;
+  grid-template-columns:18px minmax(120px,1.1fr) minmax(88px,.7fr) minmax(180px,1.4fr) auto;
+  align-items:start;
+  gap:6px;
+}
+.cat-unit-card textarea{
+  width:100%;min-height:38px;resize:vertical;
+  border:1px solid var(--cream3);border-radius:6px;
+  background:#fff;color:var(--brown);font-size:.72rem;
+  font-family:'DM Sans',sans-serif;padding:5px 7px;outline:none;
+}
+.cat-unit-card textarea:focus{border-color:var(--orange)}
+.cat-base-wrap,.cat-equiv-wrap{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cat-mini-label{font-size:.62rem;color:var(--gray);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+@media(max-width:620px){
+  .cat-unit-card{grid-template-columns:18px 1fr}
+  .cat-base-wrap,.cat-equiv-wrap{grid-column:2}
+  .cat-unit-card button{grid-column:2;justify-self:flex-start}
 }
 .cat-item-num{
   color:var(--gray);font-size:.65rem;
@@ -838,9 +858,13 @@ body.viewer-mode .cat-add-row{display:none!important}
       <div class="fgrid">
         <div class="fg"><label>Fecha</label><input type="date" id="pp-fecha"></div>
         <div class="fg"><label>Turno</label><select id="pp-turno"><option value="">Seleccionar...</option><option>Mañana</option><option>Tarde</option><option>Noche</option></select></div>
-        <div class="fg"><label>Tipo de Pan</label><select id="pp-tipo" onchange="updateCatalogUnitSelect('panes',this.value,'pp-und')"><option value="">Seleccionar...</option></select></div>
-        <div class="fg"><label>Unidad</label><select id="pp-und"><option value="">Selecciona producto...</option></select></div>
-        <div class="fg"><label>Cant. Producida</label><input type="number" id="pp-cant" min="0" placeholder="0"></div>
+        <div class="fg"><label>Tipo de Pan</label><select id="pp-tipo" onchange="updateCatalogUnitSelect('panes',this.value,'pp-und');updateProdEquiv('pp','panes')"><option value="">Seleccionar...</option></select></div>
+        <div class="fg"><label>Presentación</label><select id="pp-und" onchange="updateProdEquiv('pp','panes')"><option value="">Selecciona producto...</option></select></div>
+        <div class="fg"><label>Cant. presentación</label><input type="number" id="pp-pres-cant" min="0" step="0.01" placeholder="0" oninput="calcProdBase('pp')"></div>
+        <div class="fg"><label>Unidad teórica</label><input type="text" id="pp-teo-und" list="unit-options" placeholder="lata" oninput="calcProdBase('pp')"></div>
+        <div class="fg"><label>Cant. teórica total</label><input type="number" id="pp-eq-a" min="0" step="0.01" placeholder="Total latas" oninput="calcProdBase('pp')"></div>
+        <div class="fg"><label>Sub unidad</label><input type="text" id="pp-sub-und" list="unit-options" placeholder="unidad" oninput="calcProdBase('pp')"></div>
+        <div class="fg"><label>Cant. sub unidad total</label><input type="number" id="pp-cant" min="0" step="0.01" placeholder="Total panes"></div>
         <div class="fg"><label>Cant. Defectuosa</label><input type="number" id="pp-def" min="0" placeholder="0"></div>
         <div class="fg fgrid one"><label>Observaciones</label><input type="text" id="pp-obs" placeholder="Opcional"></div>
       </div>
@@ -861,9 +885,13 @@ body.viewer-mode .cat-add-row{display:none!important}
       <div class="fgrid">
         <div class="fg"><label>Fecha</label><input type="date" id="pa-fecha"></div>
         <div class="fg"><label>Turno</label><select id="pa-turno"><option value="">Seleccionar...</option><option>Mañana</option><option>Tarde</option><option>Noche</option></select></div>
-        <div class="fg"><label>Tipo de Pastel</label><select id="pa-tipo" onchange="updateCatalogUnitSelect('pasteles',this.value,'pa-und')"><option value="">Seleccionar...</option></select></div>
-        <div class="fg"><label>Unidad</label><select id="pa-und"><option value="">Selecciona producto...</option></select></div>
-        <div class="fg"><label>Cant. Producida</label><input type="number" id="pa-cant" min="0" placeholder="0"></div>
+        <div class="fg"><label>Tipo de Pastel</label><select id="pa-tipo" onchange="updateCatalogUnitSelect('pasteles',this.value,'pa-und');updateProdEquiv('pa','pasteles')"><option value="">Seleccionar...</option></select></div>
+        <div class="fg"><label>Presentación</label><select id="pa-und" onchange="updateProdEquiv('pa','pasteles')"><option value="">Selecciona producto...</option></select></div>
+        <div class="fg"><label>Cant. presentación</label><input type="number" id="pa-pres-cant" min="0" step="0.01" placeholder="0" oninput="calcProdBase('pa')"></div>
+        <div class="fg"><label>Unidad teórica</label><input type="text" id="pa-teo-und" list="unit-options" placeholder="bandeja/lata/caja" oninput="calcProdBase('pa')"></div>
+        <div class="fg"><label>Cant. teórica total</label><input type="number" id="pa-eq-a" min="0" step="0.01" placeholder="Total bandejas/latas/cajas" oninput="calcProdBase('pa')"></div>
+        <div class="fg"><label>Sub unidad</label><input type="text" id="pa-sub-und" list="unit-options" placeholder="unidad" oninput="calcProdBase('pa')"></div>
+        <div class="fg"><label>Cant. sub unidad total</label><input type="number" id="pa-cant" min="0" step="0.01" placeholder="Total unidades"></div>
         <div class="fg"><label>Cant. Defectuosa</label><input type="number" id="pa-def" min="0" placeholder="0"></div>
         <div class="fg fgrid one"><label>Observaciones</label><input type="text" id="pa-obs" placeholder="Opcional"></div>
       </div>
@@ -1135,7 +1163,7 @@ function setupRealtimeListeners(){
   });
   const unsubCat=onSnapshot(window._fs.doc(fsDb,'config','catalogos'),async snap=>{
     if(!snap.exists())return;const data=snap.data();
-    const newCats=normalizeCats({...data,insumos:data.insumos||DEF.insumos,panes:data.panes||DEF.panes,pasteles:data.pasteles||DEF.pasteles,encargados:data.encargados||cats.encargados||DEF.encargados,destinos:data.destinos||cats.destinos||DEF.destinos});
+    const newCats=normalizeCats({...data,insumos:data.insumos||DEF.insumos,panes:data.panes||DEF.panes,pasteles:data.pasteles||DEF.pasteles,encargados:data.encargados||cats.encargados||DEF.encargados,destinos:data.destinos||cats.destinos||DEF.destinos,baseUnits:data.baseUnits,equivalencias:data.equivalencias});
     if(JSON.stringify(newCats)!==JSON.stringify(cats)){
       cats=newCats;const rows=await dbAll('catalogos');const rec={...newCats};
       if(rows.length){rec.id=rows[rows.length-1].id;await dbPut('catalogos',rec);}else await dbAdd('catalogos',rec);
@@ -1174,7 +1202,7 @@ async function syncFromCloud(){
     }
     const cfgSnap=await getDocs(collection(fsDb,'config'));
     for(const d of cfgSnap.docs){
-      if(d.id==='catalogos'){const data=d.data();const catRows=await dbAll('catalogos');const rec=normalizeCats({insumos:data.insumos||DEF.insumos,panes:data.panes||DEF.panes,pasteles:data.pasteles||DEF.pasteles,encargados:data.encargados||cats.encargados||DEF.encargados,destinos:data.destinos||cats.destinos||DEF.destinos,unidades:data.unidades});
+      if(d.id==='catalogos'){const data=d.data();const catRows=await dbAll('catalogos');const rec=normalizeCats({insumos:data.insumos||DEF.insumos,panes:data.panes||DEF.panes,pasteles:data.pasteles||DEF.pasteles,encargados:data.encargados||cats.encargados||DEF.encargados,destinos:data.destinos||cats.destinos||DEF.destinos,unidades:data.unidades,baseUnits:data.baseUnits,equivalencias:data.equivalencias});
         if(catRows.length){rec.id=catRows[catRows.length-1].id;await dbPut('catalogos',rec);}else await dbAdd('catalogos',rec);cats=rec;fillSelects();}
     }
     setSyncUI('ok','Sincronizado ✓');
@@ -1196,11 +1224,22 @@ const DEF={
   panes:Array.from({length:20},(_,i)=>["Pan francés","Pan de molde","Pan integral","Pan ciabatta","Pan brioche","Pan de leche","Pan especial","Pan tipo 8","Pan tipo 9","Pan tipo 10"][i]||`Pan tipo ${i+1}`),
   pasteles:Array.from({length:30},(_,i)=>["Torta de cumpleaños","Cupcake","Pie de manzana","Croissant","Empanada dulce","Cheesecake","Brownie","Muffin","Pastel de hojaldre","Producto especial","Pastel tipo 11","Pastel tipo 12","Pastel tipo 13","Pastel tipo 14","Pastel tipo 15"][i]||`Pastel tipo ${i+1}`)
 };
-const UNIT_LIST=['unidad','porcion','kilogramo','gramo','litro','mililitro','docena','jaba','caja','bolsa','paquete','bandeja','plancha','lata','balde','casillero','pastel entero'];
+const UNIT_LIST=['unidad','porcion','kilogramo','kilo','gramo','libra','litro','mililitro','docena','jaba','caja','bolsa','paquete','bandeja','plancha','lata','tarro','porongo','balde','casillero','pastel entero'];
 function escAttr(v){return String(v??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function escHtml(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function normalizeUnitList(value){
   const arr=Array.isArray(value)?value:String(value||'').split(',');
   return [...new Set(arr.map(u=>String(u||'').trim()).filter(Boolean))];
+}
+function toNum(v){const n=parseFloat(String(v??'').replace(',','.'));return Number.isFinite(n)?n:0}
+function fmtQty(n){const x=toNum(n);return Number.isInteger(x)?String(x):String(Math.round(x*1000)/1000)}
+function factorFromText(value){
+  if(typeof value==='number')return value>0?value:0;
+  const txt=String(value??'').trim().replace(/,/g,'.');
+  if(!txt)return 0;
+  const parts=txt.split(/[xX*]/).map(p=>toNum(p)).filter(n=>n>0);
+  if(parts.length)return parts.reduce((a,b)=>a*b,1);
+  return toNum(txt);
 }
 function defaultUnitFor(key,name=''){
   const n=String(name).toLowerCase();
@@ -1211,6 +1250,30 @@ function defaultUnitFor(key,name=''){
   }
   return 'unidad';
 }
+function normalizeEquivList(value){
+  const raw=Array.isArray(value)?value:String(value||'').split(/\n|;/);
+  const out=[];
+  raw.forEach(item=>{
+    let nombre='',unidad='',factor=0,detalle='';
+    if(typeof item==='object'&&item){
+      nombre=String(item.nombre||item.name||item.presentacion||item.label||'').trim();
+      unidad=String(item.unidad||item.unit||nombre||'').trim();
+      factor=factorFromText(item.factorBase??item.factor??item.equivalencia??item.value);
+      detalle=String(item.detalle||item.detail||'').trim();
+    }else{
+      const parts=String(item||'').split('|').map(p=>p.trim());
+      nombre=parts[0]||'';
+      unidad=parts[1]||nombre;
+      factor=factorFromText(parts[2]||'');
+      detalle=parts[3]||'';
+    }
+    if(nombre&&factor>0)out.push({nombre,unidad:unidad||nombre,factor,detalle});
+  });
+  return out;
+}
+function equivsToText(arr){
+  return normalizeEquivList(arr).map(e=>`${e.nombre} | ${e.unidad} | ${fmtQty(e.factor)}${e.detalle?` | ${e.detalle}`:''}`).join('\n');
+}
 function normalizeCats(src={}){
   const out={
     encargados:src.encargados||DEF.encargados,
@@ -1218,17 +1281,36 @@ function normalizeCats(src={}){
     insumos:(src.insumos||DEF.insumos).map(x=>typeof x==='string'?x:(x.nombre||x.name||'')),
     panes:(src.panes||DEF.panes).map(x=>typeof x==='string'?x:(x.nombre||x.name||'')),
     pasteles:(src.pasteles||DEF.pasteles).map(x=>typeof x==='string'?x:(x.nombre||x.name||'')),
-    unidades:{insumos:{},panes:{},pasteles:{}}
+    unidades:{insumos:{},panes:{},pasteles:{}},
+    baseUnits:{insumos:{},panes:{},pasteles:{}},
+    equivalencias:{insumos:{},panes:{},pasteles:{}}
   };
   ['insumos','panes','pasteles'].forEach(key=>{
-    (src[key]||[]).forEach(x=>{if(typeof x==='object'&&x){const nombre=x.nombre||x.name;if(nombre)out.unidades[key][nombre]=normalizeUnitList(x.unidad||x.unidades||x.unit||x.units)}});
+    (src[key]||[]).forEach(x=>{if(typeof x==='object'&&x){const nombre=x.nombre||x.name;if(nombre){out.unidades[key][nombre]=normalizeUnitList(x.unidad||x.unidades||x.unit||x.units);out.baseUnits[key][nombre]=String(x.unidadBase||x.baseUnit||'').trim();out.equivalencias[key][nombre]=normalizeEquivList(x.equivalencias||x.presentaciones)}}});
     const map=src.unidades?.[key]||src.units?.[key]||{};
     Object.keys(map).forEach(nombre=>{out.unidades[key][nombre]=normalizeUnitList(map[nombre])});
-    out[key].forEach(nombre=>{if(!out.unidades[key][nombre]?.length)out.unidades[key][nombre]=[defaultUnitFor(key,nombre)]});
+    const baseMap=src.baseUnits?.[key]||src.unidadesBase?.[key]||{};
+    Object.keys(baseMap).forEach(nombre=>{out.baseUnits[key][nombre]=String(baseMap[nombre]||'').trim()});
+    const eqMap=src.equivalencias?.[key]||src.presentaciones?.[key]||{};
+    Object.keys(eqMap).forEach(nombre=>{out.equivalencias[key][nombre]=normalizeEquivList(eqMap[nombre])});
+    out[key].forEach(nombre=>{
+      if(!out.unidades[key][nombre]?.length)out.unidades[key][nombre]=[defaultUnitFor(key,nombre)];
+      if(!out.baseUnits[key][nombre])out.baseUnits[key][nombre]=out.unidades[key][nombre][0]||defaultUnitFor(key,nombre);
+      if(!out.equivalencias[key][nombre])out.equivalencias[key][nombre]=[];
+    });
   });
   return out;
 }
-function getCatalogUnits(key,name){return normalizeUnitList(cats.unidades?.[key]?.[name]).length?normalizeUnitList(cats.unidades[key][name]):[defaultUnitFor(key,name)]}
+function getBaseUnit(key,name){return cats.baseUnits?.[key]?.[name]||getCatalogUnits(key,name)[0]||defaultUnitFor(key,name)}
+function setBaseUnit(key,name,value){if(!cats.baseUnits)cats.baseUnits={insumos:{},panes:{},pasteles:{}};if(!cats.baseUnits[key])cats.baseUnits[key]={};cats.baseUnits[key][name]=(value||'').trim()||defaultUnitFor(key,name)}
+function getEquivalencias(key,name){return normalizeEquivList(cats.equivalencias?.[key]?.[name]||[])}
+function setEquivalencias(key,name,value){if(!cats.equivalencias)cats.equivalencias={insumos:{},panes:{},pasteles:{}};if(!cats.equivalencias[key])cats.equivalencias[key]={};cats.equivalencias[key][name]=normalizeEquivList(value)}
+function getCatalogUnits(key,name){
+  const base=normalizeUnitList(cats.unidades?.[key]?.[name]).length?normalizeUnitList(cats.unidades[key][name]):[defaultUnitFor(key,name)];
+  if(key==='insumos'||key==='panes'||key==='pasteles')return base;
+  const eq=getEquivalencias(key,name).map(e=>e.nombre);
+  return [...new Set([...base,...eq])];
+}
 function setCatalogUnits(key,name,value){if(!cats.unidades)cats.unidades={insumos:{},panes:{},pasteles:{}};if(!cats.unidades[key])cats.unidades[key]={};cats.unidades[key][name]=normalizeUnitList(value).length?normalizeUnitList(value):[defaultUnitFor(key,name)]}
 function renameCatItem(key,idx,value){
   const oldName=cats[key][idx],newName=(value||'').trim()||oldName;
@@ -1236,6 +1318,8 @@ function renameCatItem(key,idx,value){
   if(oldName!==newName&&cats.unidades?.[key]){
     cats.unidades[key][newName]=cats.unidades[key][oldName]||[defaultUnitFor(key,newName)];
     delete cats.unidades[key][oldName];
+    if(cats.baseUnits?.[key]){cats.baseUnits[key][newName]=cats.baseUnits[key][oldName]||defaultUnitFor(key,newName);delete cats.baseUnits[key][oldName];}
+    if(cats.equivalencias?.[key]){cats.equivalencias[key][newName]=cats.equivalencias[key][oldName]||[];delete cats.equivalencias[key][oldName];}
   }
 }
 function fillUnitSelect(select,key,name,current=''){
@@ -1253,9 +1337,33 @@ function updateSalidaUnitSelect(){
 function updateInsumoLineUnit(select){
   const row=select.closest('.row-ins');
   fillUnitSelect(row?.querySelector('.lu'),'insumos',select.value);
+  const baseInput=row?.querySelector('.lbu');
+  if(baseInput&&!baseInput.value)baseInput.value=getBaseUnit('insumos',select.value);
+  updateInsumoEquiv(row);
 }
 function catalogUnitInput(key,name){
-  return `<input type="text" list="unit-options" value="${escAttr(getCatalogUnits(key,name).join(', '))}" data-cat-unit="${key}" data-unit-name="${escAttr(name)}" onchange="setCatalogUnits('${key}',this.dataset.unitName,this.value)" placeholder="Unidad">`;
+  if(key==='insumos'||key==='panes'||key==='pasteles')return `<div class="cat-base-wrap"><span class="cat-mini-label">Unidad práctica</span><input type="text" list="unit-options" value="${escAttr(getCatalogUnits(key,name).join(', '))}" data-cat-unit="${key}" data-unit-name="${escAttr(name)}" onchange="setCatalogUnits('${key}',this.dataset.unitName,this.value)" placeholder="${key==='insumos'?'tarro, porongo, caja':'quintal, bandeja, caja'}"></div>`;
+  return `<div class="cat-base-wrap"><span class="cat-mini-label">Base stock</span><input type="text" list="unit-options" value="${escAttr(getBaseUnit(key,name))}" data-cat-base="${key}" data-unit-name="${escAttr(name)}" onchange="setBaseUnit('${key}',this.dataset.unitName,this.value)" placeholder="kg, litro, unidad"></div>
+    <div class="cat-equiv-wrap"><span class="cat-mini-label">Equivalencias: nombre | unidad | factor a base</span><textarea data-cat-equiv="${key}" data-unit-name="${escAttr(name)}" onchange="setEquivalencias('${key}',this.dataset.unitName,this.value)" placeholder="saco 15 kg | saco | 15">${escHtml(equivsToText(getEquivalencias(key,name)))}</textarea></div>`;
+}
+function getEquivFactor(key,name,unidad){
+  const eq=getEquivalencias(key,name).find(e=>e.nombre===unidad||e.unidad===unidad);
+  return eq?.factor>0?eq.factor:1;
+}
+function getEquivDetail(key,name,unidad){
+  const eq=getEquivalencias(key,name).find(e=>e.nombre===unidad||e.unidad===unidad);
+  if(!eq)return '';
+  return `${fmtQty(eq.factor)} ${getBaseUnit(key,name)} por ${eq.unidad||eq.nombre}`;
+}
+function baseQtyForRecord(rec,key,nameField='insumo'){
+  if(Number.isFinite(rec.cantidadBase))return rec.cantidadBase;
+  const name=rec[nameField]||rec.producto;
+  return (parseFloat(rec.cantidad)||0)*getEquivFactor(key,name,rec.unidad);
+}
+function prodOutBaseQty(rec){
+  if(Number.isFinite(rec.cantidadBase))return rec.cantidadBase;
+  const key=rec.categoria==='Pasteles'?'pasteles':'panes';
+  return (parseFloat(rec.cantidad)||0)*getEquivFactor(key,rec.producto,rec.unidad);
 }
 function openDB(){
   return new Promise((res,rej)=>{
@@ -1336,7 +1444,7 @@ function renderCats(){
   const sec=(key,lbl,color,inputId)=>`<div class="cat-section">
     <div class="cat-title" style="color:${color}">${lbl}</div>
     <div class="cat-items-grid">
-      ${cats[key].map((n,i)=>`<div class="cat-item">
+      ${cats[key].map((n,i)=>`<div class="cat-item cat-unit-card">
         <span class="cat-item-num">${i+1}</span>
         <input type="text" value="${escAttr(n)}" data-cat="${key}" data-i="${i}" onchange="renameCatItem('${key}',${i},this.value);renderCats()">
         ${catalogUnitInput(key,n)}
@@ -1355,6 +1463,8 @@ function quitarCatItem(key,idx){
   if(!confirm(`¿Eliminar "${nombre}" del catálogo?`))return;
   cats[key].splice(idx,1);
   if(cats.unidades?.[key])delete cats.unidades[key][nombre];
+  if(cats.baseUnits?.[key])delete cats.baseUnits[key][nombre];
+  if(cats.equivalencias?.[key])delete cats.equivalencias[key][nombre];
   renderCats();
   toast(`🗑 "${nombre}" eliminado — guarda catálogos`,'var(--red)');
 }
@@ -1366,6 +1476,7 @@ function agregarCatItem(key,inputId){
   const unidad=(document.getElementById(inputId+'-unidad')?.value||'').trim();
   cats[key].push(val);
   setCatalogUnits(key,val,unidad||defaultUnitFor(key,val));
+  setBaseUnit(key,val,unidad||defaultUnitFor(key,val));
   inp.value='';
   const unitInp=document.getElementById(inputId+'-unidad');if(unitInp)unitInp.value='';
   renderCats();
@@ -1373,7 +1484,7 @@ function agregarCatItem(key,inputId){
 }
 async function saveCatalogos(){
   const rows=await dbAll('catalogos');
-  const rec={encargados:cats.encargados||[],destinos:cats.destinos||[],insumos:cats.insumos,panes:cats.panes,pasteles:cats.pasteles,unidades:cats.unidades||{insumos:{},panes:{},pasteles:{}}};
+  const rec={encargados:cats.encargados||[],destinos:cats.destinos||[],insumos:cats.insumos,panes:cats.panes,pasteles:cats.pasteles,unidades:cats.unidades||{insumos:{},panes:{},pasteles:{}},baseUnits:cats.baseUnits||{insumos:{},panes:{},pasteles:{}},equivalencias:cats.equivalencias||{insumos:{},panes:{},pasteles:{}}};
   if(rows.length){rec.id=rows[rows.length-1].id;await dbPut('catalogos',rec)}else await dbAdd('catalogos',rec);
   await cloudSaveCats(rec);fillSelects();toast('✅ Catálogos guardados');
 }
@@ -1383,6 +1494,8 @@ function fillSelects(){
   document.getElementById('pa-tipo').innerHTML=mkOpts(cats.pasteles);
   updateCatalogUnitSelect('panes',v('pp-tipo'),'pp-und');
   updateCatalogUnitSelect('pasteles',v('pa-tipo'),'pa-und');
+  updateProdEquiv('pp','panes');
+  updateProdEquiv('pa','pasteles');
   updateSalidaUnitSelect();
   fillEncargados();renderListaEncargados();fillDestinos();renderListaDestinos();
 }
@@ -1442,8 +1555,11 @@ function mkInsLine(uid,containerId,showPrecio){
   return`<div class="row-ins" id="${containerId}-line-${uid}">
     <div class="fgrid">
       <div class="fg"><label>Insumo</label><select class="li" onchange="updateInsumoLineUnit(this)"><option value="">Seleccionar...</option>${ins}</select></div>
-      <div class="fg"><label>Unidad</label><select class="lu"><option value="">Selecciona insumo...</option></select></div>
-      <div class="fg"><label>Cantidad</label><input type="number" class="lc" min="0" placeholder="0"></div>
+      <div class="fg"><label>Presentación</label><select class="lu" onchange="updateInsumoEquiv(this.closest('.row-ins'))"><option value="">Selecciona insumo...</option></select></div>
+      <div class="fg"><label>Cantidad</label><input type="number" class="lc" min="0" step="0.01" placeholder="0" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
+      <div class="fg"><label>Unidad equivalencia</label><input type="text" list="unit-options" class="lbu" placeholder="litro, kilo, libra" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
+      <div class="fg"><label>Equiv. a base</label><input type="number" class="lf" min="0" step="0.0001" placeholder="1" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
+      <div class="fg"><label>Cantidad base</label><input type="text" class="lb" readonly placeholder="0"></div>
       ${showPrecio?`<div class="fg"><label>Precio Unit.</label><input type="number" class="lp" min="0" step="0.01" placeholder="0.00"></div>`:''}
       <div class="fg"><label>Obs.</label><input type="text" class="lo" placeholder="Opcional"></div>
     </div>
@@ -1452,13 +1568,42 @@ function mkInsLine(uid,containerId,showPrecio){
 }
 function addLineaEntrada(){lineaEntCnt++;document.getElementById('lineas-entrada').insertAdjacentHTML('beforeend',mkInsLine(lineaEntCnt,'lineas-entrada',true))}
 function addLineaSalidaIns(){lineaSalCnt++;document.getElementById('lineas-salida-ins').insertAdjacentHTML('beforeend',mkInsLine(lineaSalCnt,'lineas-salida-ins',false))}
+function updateInsumoEquiv(row){
+  if(!row)return;
+  const ins=row.querySelector('.li')?.value||'',unidad=row.querySelector('.lu')?.value||'';
+  const cant=toNum(row.querySelector('.lc')?.value);
+  const factorInput=row.querySelector('.lf');
+  const catalogFactor=getEquivFactor('insumos',ins,unidad);
+  if(factorInput&&(factorInput.dataset.lastUnidad!==unidad||!factorInput.value)){
+    factorInput.value=catalogFactor>0?fmtQty(catalogFactor):'1';
+    factorInput.dataset.lastUnidad=unidad;
+  }
+  const factor=toNum(factorInput?.value)||catalogFactor;
+  const baseInput=row.querySelector('.lbu');
+  if(baseInput&&!baseInput.value)baseInput.value=getBaseUnit('insumos',ins);
+  const base=baseInput?.value||getBaseUnit('insumos',ins);
+  const lb=row.querySelector('.lb');
+  if(lb)lb.value=ins&&cant>0?`${fmtQty(cant*factor)} ${base}`:'';
+}
 function leerLineas(containerId){
-  return Array.from(document.querySelectorAll('#'+containerId+' .row-ins')).map(row=>({
-    insumo:row.querySelector('.li')?.value||'',unidad:row.querySelector('.lu')?.value||'',
-    cantidad:parseFloat(row.querySelector('.lc')?.value)||0,
-    precio:parseFloat(row.querySelector('.lp')?.value)||0,
-    obs:row.querySelector('.lo')?.value||''
-  }));
+  return Array.from(document.querySelectorAll('#'+containerId+' .row-ins')).map(row=>{
+    const insumo=row.querySelector('.li')?.value||'',unidad=row.querySelector('.lu')?.value||'';
+    const cantidad=toNum(row.querySelector('.lc')?.value);
+    const factor=toNum(row.querySelector('.lf')?.value)||getEquivFactor('insumos',insumo,unidad);
+    const unidadBase=(row.querySelector('.lbu')?.value||'').trim()||getBaseUnit('insumos',insumo);
+    return{
+      insumo,unidad,cantidad,
+      cantidadBase:cantidad*factor,unidadBase,
+      factorBase:factor,equivDetalle:`${fmtQty(factor)} ${unidadBase} por ${unidad||'presentación'}`,
+      precio:toNum(row.querySelector('.lp')?.value),
+      obs:row.querySelector('.lo')?.value||''
+    };
+  });
+}
+function insumoCantidadTexto(r){
+  const unidadBase=r.unidadBase||getBaseUnit('insumos',r.insumo);
+  const cantidadBase=Number.isFinite(r.cantidadBase)?r.cantidadBase:baseQtyForRecord(r,'insumos','insumo');
+  return `<b>${fmtQty(r.cantidad)} ${r.unidad||''}</b> <span style="color:var(--gray);font-size:.78rem">- ${fmtQty(cantidadBase)} ${unidadBase}</span>`;
 }
 
 // ════════════════════════════════════════════
@@ -1468,9 +1613,11 @@ async function guardarEntrada(){
   const fecha=v('ent-fecha')||hoy(),tipodoc=v('ent-tipodoc'),numdoc=v('ent-numdoc'),prov=v('ent-prov');
   const lineas=leerLineas('lineas-entrada').filter(l=>l.insumo&&l.cantidad>0);
   if(!lineas.length){toast('⚠ Agrega al menos un insumo con cantidad','var(--red)');return}
+  if(lineas.some(l=>!l.unidad||l.factorBase<=0||l.cantidadBase<=0)){toast('⚠ Revisa presentación y equivalencia','var(--red)');return}
   for(const l of lineas){
-    const id=await dbAdd('entradas',{fecha,tipodoc,numdoc,proveedor:prov,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,precio:l.precio||0,obs:l.obs||''});
-    await cloudAdd('entradas',id,{fecha,tipodoc,numdoc,proveedor:prov,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,precio:l.precio||0,obs:l.obs||''});
+    const data={fecha,tipodoc,numdoc,proveedor:prov,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,cantidadBase:l.cantidadBase,unidadBase:l.unidadBase,factorBase:l.factorBase,equivDetalle:l.equivDetalle,precio:l.precio||0,obs:l.obs||''};
+    const id=await dbAdd('entradas',data);
+    await cloudAdd('entradas',id,data);
   }
   document.getElementById('lineas-entrada').innerHTML='';lineaEntCnt=0;
   ['ent-tipodoc','ent-numdoc','ent-prov'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
@@ -1488,7 +1635,7 @@ async function renderEntradas(){
     <td>${i+1}</td><td>${fmt(r.fecha)}</td>
     <td><span class="badge bins">${r.tipodoc||'—'}</span></td>
     <td>${r.numdoc||'—'}</td><td><b>${r.insumo}</b></td>
-    <td>${r.unidad||'—'}</td><td>${r.cantidad}</td>
+    <td>${r.unidad||'—'}${r.equivDetalle?`<div style="font-size:.65rem;color:var(--gray)">${r.equivDetalle}</div>`:''}</td><td>${insumoCantidadTexto(r)}</td>
     <td>${r.precio?'S/.'+r.precio.toFixed(2):'—'}</td>
     <td>${r.proveedor||'—'}</td><td>${r.obs||'—'}</td>
     <td><button class="btn bsec bsm edit-btn" onclick="openEdit('entradas',${r.id})">✏️</button></td>
@@ -1503,9 +1650,11 @@ async function guardarSalidaIns(){
   const fecha=v('sal-ins-fecha')||hoy(),motivo=v('sal-ins-motivo'),ticket=v('sal-ins-ticket'),obs=v('sal-ins-obs');
   const lineas=leerLineas('lineas-salida-ins').filter(l=>l.insumo&&l.cantidad>0);
   if(!lineas.length){toast('⚠ Agrega al menos un insumo con cantidad','var(--red)');return}
+  if(lineas.some(l=>!l.unidad||l.factorBase<=0||l.cantidadBase<=0)){toast('⚠ Revisa presentación y equivalencia','var(--red)');return}
   for(const l of lineas){
-    const id=await dbAdd('salidas_ins',{fecha,motivo,ticket,obs,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,obs_linea:l.obs||''});
-    await cloudAdd('salidas_ins',id,{fecha,motivo,ticket,obs,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,obs_linea:l.obs||''});
+    const data={fecha,motivo,ticket,obs,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,cantidadBase:l.cantidadBase,unidadBase:l.unidadBase,factorBase:l.factorBase,equivDetalle:l.equivDetalle,obs_linea:l.obs||''};
+    const id=await dbAdd('salidas_ins',data);
+    await cloudAdd('salidas_ins',id,data);
   }
   document.getElementById('lineas-salida-ins').innerHTML='';lineaSalCnt=0;
   ['sal-ins-motivo','sal-ins-ticket','sal-ins-obs'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
@@ -1523,7 +1672,7 @@ async function renderSalidasIns(){
     <td>${i+1}</td><td>${fmt(r.fecha)}</td>
     <td><span class="badge bsal">${r.motivo||'—'}</span></td>
     <td>${r.ticket||'—'}</td><td><b>${r.insumo}</b></td>
-    <td>${r.unidad||'—'}</td><td>${r.cantidad}</td>
+    <td>${r.unidad||'—'}${r.equivDetalle?`<div style="font-size:.65rem;color:var(--gray)">${r.equivDetalle}</div>`:''}</td><td>${insumoCantidadTexto(r)}</td>
     <td>${r.obs||r.obs_linea||'—'}</td>
     <td><button class="btn bsec bsm edit-btn" onclick="openEdit('salidas_ins',${r.id})">✏️</button></td>
     <td><button class="btn br bsm del-btn" onclick="del('salidas_ins',${r.id},renderSalidasIns)">🗑</button></td>
@@ -1533,14 +1682,46 @@ async function renderSalidasIns(){
 // ════════════════════════════════════════════
 // PRODUCCIÓN
 // ════════════════════════════════════════════
+function updateProdEquiv(pre,key){
+  const producto=v(pre+'-tipo'),unidad=v(pre+'-und');
+  const teo=document.getElementById(pre+'-teo-und'),sub=document.getElementById(pre+'-sub-und');
+  if(teo&&!teo.value)teo.value=pre==='pp'?'lata':'bandeja';
+  if(sub&&!sub.value)sub.value=getBaseUnit(key,producto)||'unidad';
+  calcProdBase(pre);
+}
+function prodFactorFromInputs(pre){
+  const pres=toNum(v(pre+'-pres-cant')),cant=toNum(v(pre+'-cant'));
+  return pres>0&&cant>0?cant/pres:1;
+}
+function calcProdBase(pre){
+  const teo=document.getElementById(pre+'-teo-und'),sub=document.getElementById(pre+'-sub-und');
+  if(teo&&!teo.value)teo.value=pre==='pp'?'lata':'bandeja';
+  if(sub&&!sub.value)sub.value='unidad';
+}
+function prodCantidadTeorica(rec){
+  if(Number.isFinite(rec.cantidadTeorica))return rec.cantidadTeorica;
+  return (parseFloat(rec.cantidadPresentacion)||parseFloat(rec.cantidad)||0)*(parseFloat(rec.eqA)||1);
+}
+function prodCantidadTexto(r){
+  const pract=`${fmtQty(r.cantidadPresentacion||r.cantidad)} ${r.unidad||''}`;
+  const teor=`${fmtQty(prodCantidadTeorica(r))} ${r.unidadTeorica||'lata'}`;
+  const sub=`${fmtQty(r.cantidad)} ${r.unidadSub||r.unidadBase||getBaseUnit(r.tipo==='pastel'?'pasteles':'panes',r.producto)}`;
+  return `<b>${pract}</b><div style="font-size:.68rem;color:var(--gray)">${teor} - ${sub}</div>`;
+}
 async function guardarProd(tipo){
-  const pre=tipo==='pan'?'pp':'pa';
-  const cant=parseFloat(v(pre+'-cant'))||0,def=parseFloat(v(pre+'-def'))||0;
-  if(!v(pre+'-tipo')||!cant){toast('⚠ Completa tipo y cantidad','var(--red)');return}
-  const data={tipo,fecha:v(pre+'-fecha')||hoy(),turno:v(pre+'-turno'),producto:v(pre+'-tipo'),unidad:v(pre+'-und'),cantidad:cant,defectuosa:def,neto:cant-def,obs:v(pre+'-obs')};
+  const pre=tipo==='pan'?'pp':'pa',key=tipo==='pan'?'panes':'pasteles';
+  calcProdBase(pre);
+  const cant=toNum(v(pre+'-cant')),def=toNum(v(pre+'-def'));
+  const presCant=toNum(v(pre+'-pres-cant')),teoCant=toNum(v(pre+'-eq-a')),factor=prodFactorFromInputs(pre);
+  if(!v(pre+'-tipo')||cant<=0){toast('⚠ Completa tipo y cantidad','var(--red)');return}
+  if(def<0||def>cant){toast('⚠ Revisa cantidad defectuosa','var(--red)');return}
+  if(presCant<=0||teoCant<0){toast('⚠ Revisa cantidades de producción','var(--red)');return}
+  const unidadBase=v(pre+'-sub-und')||getBaseUnit(key,v(pre+'-tipo'));
+  const eqB=teoCant>0?cant/teoCant:0;
+  const data={tipo,fecha:v(pre+'-fecha')||hoy(),turno:v(pre+'-turno'),producto:v(pre+'-tipo'),unidad:v(pre+'-und'),cantidad:cant,cantidadPresentacion:presCant,unidadTeorica:v(pre+'-teo-und')||(tipo==='pan'?'lata':'bandeja'),cantidadTeorica:teoCant,unidadSub:unidadBase,factorBase:factor,unidadBase,eqA:teoCant,eqB,defectuosa:def,neto:cant-def,obs:v(pre+'-obs')};
   const id=await dbAdd('produccion',data);await cloudAdd('produccion',id,data);
-  [pre+'-turno',pre+'-tipo',pre+'-und',pre+'-cant',pre+'-def',pre+'-obs'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
-  updateCatalogUnitSelect(tipo==='pan'?'panes':'pasteles','',pre+'-und');
+  [pre+'-turno',pre+'-tipo',pre+'-und',pre+'-pres-cant',pre+'-teo-und',pre+'-eq-a',pre+'-sub-und',pre+'-cant',pre+'-def',pre+'-obs'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
+  updateCatalogUnitSelect(key,'',pre+'-und');
   toast('✅ Producción registrada');renderProd();
 }
 async function renderProd(){
@@ -1553,8 +1734,8 @@ async function renderProd(){
     const tb=document.querySelector('#'+tbId+' tbody');if(!data.length){tb.innerHTML=empty(11);return}
     tb.innerHTML=data.map((r,i)=>`<tr>
       <td>${i+1}</td><td>${fmt(r.fecha)}</td><td>${r.turno||'—'}</td>
-      <td><b>${r.producto}</b></td><td>${r.unidad||'—'}</td>
-      <td>${r.cantidad}</td><td style="color:var(--red)">${r.defectuosa||0}</td>
+      <td><b>${r.producto}</b></td><td>${r.unidad||'—'}${r.eqA?`<div style="font-size:.65rem;color:var(--gray)">${fmtQty(r.eqA)} ${r.unidadTeorica||'lata'} / ${r.unidad||'presentación'}</div>`:''}</td>
+      <td>${prodCantidadTexto(r)}</td><td style="color:var(--red)">${fmtQty(r.defectuosa||0)}</td>
       <td><b style="color:var(--green)">${r.neto}</b></td><td>${r.obs||'—'}</td>
       <td><button class="btn bsec bsm edit-btn" onclick="openEdit('produccion',${r.id})">✏️</button></td>
       <td><button class="btn br bsm del-btn" onclick="del('produccion',${r.id},renderProd)">🗑</button></td>
@@ -1568,8 +1749,12 @@ async function renderProd(){
 // SALIDA DE PRODUCTOS
 // ════════════════════════════════════════════
 async function guardarSalidaProd(){
-  if(!v('sp-prod')||!v('sp-cant')){toast('⚠ Completa producto y cantidad','var(--red)');return}
-  const data={fecha:v('sp-fecha')||hoy(),categoria:v('sp-cat'),producto:v('sp-prod'),unidad:v('sp-und'),cantidad:parseFloat(v('sp-cant'))||0,destino:v('sp-dest'),encargado:v('sp-encargado'),documento:v('sp-doc'),obs:v('sp-obs')};
+  const cant=toNum(v('sp-cant'));
+  if(!v('sp-prod')||cant<=0){toast('⚠ Completa producto y cantidad','var(--red)');return}
+  const key=v('sp-cat')==='Panes'?'panes':'pasteles';
+  const factor=getEquivFactor(key,v('sp-prod'),v('sp-und'));
+  if(factor<=0){toast('⚠ Revisa presentación y equivalencia','var(--red)');return}
+  const data={fecha:v('sp-fecha')||hoy(),categoria:v('sp-cat'),producto:v('sp-prod'),unidad:v('sp-und'),cantidad:cant,cantidadBase:cant*factor,unidadBase:getBaseUnit(key,v('sp-prod')),factorBase:factor,destino:v('sp-dest'),encargado:v('sp-encargado'),documento:v('sp-doc'),obs:v('sp-obs')};
   const id=await dbAdd('salida_prod',data);await cloudAdd('salida_prod',id,data);
   ['sp-cat','sp-prod','sp-und','sp-cant','sp-dest','sp-encargado','sp-doc','sp-obs'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
   updateSalidaUnitSelect();
@@ -1586,8 +1771,8 @@ async function renderSalidaProd(){
   tb.innerHTML=data.map((r,i)=>`<tr>
     <td>${i+1}</td><td>${fmt(r.fecha)}</td>
     <td><span class="badge ${r.categoria==='Panes'?'bpan':'bpast'}">${r.categoria||'—'}</span></td>
-    <td><b>${r.producto}</b></td><td>${r.unidad||'—'}</td>
-    <td>${r.cantidad}</td><td>${r.destino||'—'}</td>
+    <td><b>${r.producto}</b></td><td>${r.unidad||'—'}${r.factorBase&&r.factorBase!==1?`<div style="font-size:.65rem;color:var(--gray)">x ${fmtQty(r.factorBase)} ${r.unidadBase||getBaseUnit(r.categoria==='Pasteles'?'pasteles':'panes',r.producto)}</div>`:''}</td>
+    <td>${r.cantidad}${r.cantidadBase&&r.cantidadBase!==r.cantidad?`<div style="font-size:.65rem;color:var(--green)">${fmtQty(r.cantidadBase)} ${r.unidadBase||''}</div>`:''}</td><td>${r.destino||'—'}</td>
     <td>${r.encargado||'—'}</td><td>${r.documento||'—'}</td><td>${r.obs||'—'}</td>
     <td><button class="btn bsec bsm edit-btn" onclick="openEdit('salida_prod',${r.id})">✏️</button></td>
     <td><button class="btn br bsm del-btn" onclick="del('salida_prod',${r.id},renderSalidaProd)">🗑</button></td>
@@ -1605,22 +1790,22 @@ async function renderInv(){
 
   // Construir datos insumos
   _invInsData=cats.insumos.map((n,i)=>{
-    const e=ent.filter(r=>r.insumo===n).reduce((s,r)=>s+r.cantidad,0);
-    const s=sal.filter(r=>r.insumo===n).reduce((s,r)=>s+r.cantidad,0);
+    const e=ent.filter(r=>r.insumo===n).reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0);
+    const s=sal.filter(r=>r.insumo===n).reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0);
     const inv=getInv('ins_'+n);
     const stock=(inv.si||0)+e-s+(inv.aj||0);
     const min=inv.min||0;
-    return{idx:i,n,e,s,stock,min,inv,low:min>0&&stock<=min,mid:min>0&&stock>min&&stock<=min*1.5};
+    return{idx:i,n,e,s,stock,min,inv,baseUnit:getBaseUnit('insumos',n),low:min>0&&stock<=min,mid:min>0&&stock>min&&stock<=min*1.5};
   });
 
   // Construir datos productos
   const allP=[...cats.panes.map(n=>({n,t:'Pan'})),...cats.pasteles.map(n=>({n,t:'Pastel'}))];
   _invProdData=allP.map(({n,t},i)=>{
     const producido=prod.filter(r=>r.producto===n).reduce((s,r)=>s+r.neto,0);
-    const despachado=sp.filter(r=>r.producto===n).reduce((s,r)=>s+r.cantidad,0);
+    const despachado=sp.filter(r=>r.producto===n).reduce((s,r)=>s+prodOutBaseQty(r),0);
     const inv=getInv('prod_'+n);
     const stock=(inv.si||0)+producido-despachado+(inv.aj||0);
-    return{idx:i,n,t,producido,despachado,stock,inv,low:stock<=0};
+    return{idx:i,n,t,producido,despachado,stock,inv,baseUnit:getBaseUnit(t==='Pastel'?'pasteles':'panes',n),low:stock<=0};
   });
 
   // Badge de alertas
@@ -1660,9 +1845,9 @@ function _renderInvIns(){
     const statusIcon=x.low?'🔴':x.mid?'🟡':'🟢';
     return`<tr class="inv-summary-row${x.low?' low-row':''}" onclick="toggleInvEdit('ins','${x.idx}',this)">
       <td><div class="inv-name-main">${x.n}</div></td>
-      <td style="text-align:center;color:var(--green);font-weight:600">${x.e}</td>
-      <td style="text-align:center;color:var(--red);font-weight:600">${x.s}</td>
-      <td style="text-align:center"><span class="inv-stock-val ${stockCls}">${x.stock}</span>${x.min>0?`<div style="font-size:.65rem;color:var(--gray)">mín ${x.min}</div>`:''}</td>
+      <td style="text-align:center;color:var(--green);font-weight:600">${fmtQty(x.e)}<div style="font-size:.65rem;color:var(--gray)">${x.baseUnit}</div></td>
+      <td style="text-align:center;color:var(--red);font-weight:600">${fmtQty(x.s)}<div style="font-size:.65rem;color:var(--gray)">${x.baseUnit}</div></td>
+      <td style="text-align:center"><span class="inv-stock-val ${stockCls}">${fmtQty(x.stock)}</span><div style="font-size:.65rem;color:var(--gray)">${x.baseUnit}${x.min>0?` · min ${fmtQty(x.min)}`:''}</div></td>
       <td>${statusIcon} ${x.low?'<b style="color:var(--red);font-size:.75rem">Bajo mínimo</b>':x.mid?'<span style="color:var(--gold);font-size:.75rem">Por reponer</span>':'<span style="color:var(--green);font-size:.75rem">OK</span>'}
         ${pct!==null?`<div class="inv-bar-sm"><div class="inv-bar-sm-fill" style="width:${pct}%;background:${barColor}"></div></div>`:''}
       </td>
@@ -1689,9 +1874,9 @@ function _renderInvProd(){
     const stockCls=x.low?'inv-stock-low':'inv-stock-ok';
     return`<tr class="inv-summary-row${x.low?' low-row':''}" onclick="toggleInvEdit('prod','${x.idx}',this)">
       <td><div class="inv-name-main">${x.n}</div></td>
-      <td style="text-align:center;color:var(--green);font-weight:600">${x.producido}</td>
-      <td style="text-align:center;color:var(--red);font-weight:600">${x.despachado}</td>
-      <td style="text-align:center"><span class="inv-stock-val ${stockCls}">${x.stock}</span></td>
+      <td style="text-align:center;color:var(--green);font-weight:600">${fmtQty(x.producido)}<div style="font-size:.65rem;color:var(--gray)">${x.baseUnit}</div></td>
+      <td style="text-align:center;color:var(--red);font-weight:600">${fmtQty(x.despachado)}<div style="font-size:.65rem;color:var(--gray)">${x.baseUnit}</div></td>
+      <td style="text-align:center"><span class="inv-stock-val ${stockCls}">${fmtQty(x.stock)}</span><div style="font-size:.65rem;color:var(--gray)">${x.baseUnit}</div></td>
       <td><span class="badge ${x.t==='Pan'?'bpan':'bpast'}">${x.t}</span></td>
     </tr>
     <tr class="inv-edit-panel" id="inv-edit-prod-${x.idx}">
@@ -1775,9 +1960,9 @@ function unitOptionsForRecord(store,rec){
   return [];
 }
 const FIELDS={
-  entradas:[{k:'fecha',l:'Fecha',t:'date'},{k:'tipodoc',l:'Tipo Doc.',t:'sel',opts:['Boleta','Factura','Otro']},{k:'numdoc',l:'N° Documento',t:'text'},{k:'insumo',l:'Insumo',t:'selCat',cat:'insumos'},{k:'unidad',l:'Unidad',t:'sel',opts:['kilogramo','litro','mililitro','balde','casillero']},{k:'cantidad',l:'Cantidad',t:'num'},{k:'precio',l:'Precio Unit.',t:'num'},{k:'proveedor',l:'Proveedor',t:'text'},{k:'obs',l:'Obs.',t:'text'}],
-  salidas_ins:[{k:'fecha',l:'Fecha',t:'date'},{k:'motivo',l:'Motivo',t:'sel',opts:['Usado en Producción','Merma / Pérdida','Devolución','Otro']},{k:'ticket',l:'Ticket',t:'text'},{k:'insumo',l:'Insumo',t:'selCat',cat:'insumos'},{k:'unidad',l:'Unidad',t:'sel',opts:['kilogramo','litro','mililitro','balde','casillero']},{k:'cantidad',l:'Cantidad',t:'num'},{k:'obs',l:'Obs.',t:'text'}],
-  produccion:[{k:'fecha',l:'Fecha',t:'date'},{k:'turno',l:'Turno',t:'sel',opts:['Mañana','Tarde','Noche']},{k:'producto',l:'Producto',t:'text'},{k:'unidad',l:'Unidad',t:'sel',opts:UND_PROD},{k:'cantidad',l:'Cant. Producida',t:'num'},{k:'defectuosa',l:'Cant. Defectuosa',t:'num'},{k:'obs',l:'Obs.',t:'text'}],
+  entradas:[{k:'fecha',l:'Fecha',t:'date'},{k:'tipodoc',l:'Tipo Doc.',t:'sel',opts:['Boleta','Factura','Otro']},{k:'numdoc',l:'N° Documento',t:'text'},{k:'insumo',l:'Insumo',t:'selCat',cat:'insumos'},{k:'unidad',l:'Unidad práctica',t:'sel',opts:['kilogramo','litro','mililitro','balde','casillero']},{k:'cantidad',l:'Cantidad',t:'num'},{k:'unidadBase',l:'Unidad equivalencia',t:'text'},{k:'factorBase',l:'Equiv. por unidad',t:'num'},{k:'precio',l:'Precio Unit.',t:'num'},{k:'proveedor',l:'Proveedor',t:'text'},{k:'obs',l:'Obs.',t:'text'}],
+  salidas_ins:[{k:'fecha',l:'Fecha',t:'date'},{k:'motivo',l:'Motivo',t:'sel',opts:['Usado en Producción','Merma / Pérdida','Devolución','Otro']},{k:'ticket',l:'Ticket',t:'text'},{k:'insumo',l:'Insumo',t:'selCat',cat:'insumos'},{k:'unidad',l:'Unidad práctica',t:'sel',opts:['kilogramo','litro','mililitro','balde','casillero']},{k:'cantidad',l:'Cantidad',t:'num'},{k:'unidadBase',l:'Unidad equivalencia',t:'text'},{k:'factorBase',l:'Equiv. por unidad',t:'num'},{k:'obs',l:'Obs.',t:'text'}],
+  produccion:[{k:'fecha',l:'Fecha',t:'date'},{k:'turno',l:'Turno',t:'sel',opts:['Mañana','Tarde','Noche']},{k:'producto',l:'Producto',t:'text'},{k:'unidad',l:'Unidad práctica',t:'sel',opts:UND_PROD},{k:'cantidadPresentacion',l:'Cant. práctica',t:'num'},{k:'unidadTeorica',l:'Unidad teórica',t:'text'},{k:'eqA',l:'Cant. teórica total',t:'num'},{k:'unidadSub',l:'Sub unidad',t:'text'},{k:'cantidad',l:'Cant. sub unidad total',t:'num'},{k:'defectuosa',l:'Cant. Defectuosa',t:'num'},{k:'obs',l:'Obs.',t:'text'}],
   salida_prod:[{k:'fecha',l:'Fecha',t:'date'},{k:'categoria',l:'Categoría',t:'sel',opts:['Panes','Pasteles']},{k:'producto',l:'Producto',t:'text'},{k:'unidad',l:'Unidad',t:'sel',opts:UND_PROD},{k:'cantidad',l:'Cantidad',t:'num'},{k:'destino',l:'Destino',t:'text'},{k:'documento',l:'N° Doc.',t:'text'},{k:'obs',l:'Obs.',t:'text'}]
 };
 async function openEdit(store,id){
@@ -1798,7 +1983,29 @@ async function saveEdit(){
   if(!editCtx)return;const{store,id,rec}=editCtx;const fields=FIELDS[store]||[];
   const updated={...rec};
   fields.forEach(f=>{const val=document.getElementById('ef-'+f.k)?.value||'';updated[f.k]=f.t==='num'?parseFloat(val)||0:val});
-  if(updated.cantidad!==undefined&&updated.defectuosa!==undefined)updated.neto=updated.cantidad-updated.defectuosa;
+  if(store==='entradas'||store==='salidas_ins'){
+    updated.factorBase=updated.factorBase>0?updated.factorBase:getEquivFactor('insumos',updated.insumo,updated.unidad);
+    updated.unidadBase=updated.unidadBase||getBaseUnit('insumos',updated.insumo);
+    updated.cantidadBase=(updated.cantidad||0)*updated.factorBase;
+    updated.equivDetalle=`${fmtQty(updated.factorBase)} ${updated.unidadBase} por ${updated.unidad||'presentación'}`;
+  }
+  if(store==='salida_prod'){
+    const key=updated.categoria==='Pasteles'?'pasteles':'panes';
+    updated.factorBase=getEquivFactor(key,updated.producto,updated.unidad);
+    updated.unidadBase=getBaseUnit(key,updated.producto);
+    updated.cantidadBase=(updated.cantidad||0)*updated.factorBase;
+  }
+  if(updated.cantidad!==undefined&&updated.defectuosa!==undefined){
+    updated.cantidadPresentacion=updated.cantidadPresentacion||updated.cantidad;
+    updated.unidadTeorica=updated.unidadTeorica||'lata';
+    updated.eqA=updated.eqA||updated.cantidadTeorica||0;
+    updated.unidadSub=updated.unidadSub||updated.unidadBase||'unidad';
+    updated.eqB=updated.eqA>0?updated.cantidad/updated.eqA:0;
+    updated.cantidadTeorica=updated.eqA;
+    updated.factorBase=updated.cantidadPresentacion>0?updated.cantidad/updated.cantidadPresentacion:1;
+    updated.unidadBase=updated.unidadSub;
+    updated.neto=updated.cantidad-updated.defectuosa;
+  }
   await dbPut(store,updated);await cloudUpdate(store,id,updated);
   closeModal();toast('✅ Registro actualizado');
   const renders={entradas:renderEntradas,salidas_ins:renderSalidasIns,produccion:renderProd,salida_prod:renderSalidaProd};
@@ -1849,6 +2056,23 @@ function _dashRango(){
     return{desde,hasta,lbl:d.toLocaleDateString('es-PE',{month:'long',year:'numeric'})};
   }
 }
+function dashAddPractical(map, qty, unit){
+  const u=unit||'unidad';
+  map[u]=(map[u]||0)+(parseFloat(qty)||0);
+}
+function dashPracticalText(map){
+  return Object.entries(map||{}).map(([u,q])=>`${fmtQty(q)} ${u}`).join(', ');
+}
+function dashQtyHtml(practicalMap, baseQty, baseUnit, color){
+  const practical=dashPracticalText(practicalMap);
+  return `<b style="color:${color}">${practical||`${fmtQty(baseQty)} ${baseUnit||''}`}</b>${baseUnit?`<div style="font-size:.68rem;color:var(--gray)">${fmtQty(baseQty)} ${baseUnit}</div>`:''}`;
+}
+function dashProdHtml(v,color='var(--green)'){
+  const practical=dashPracticalText(v.pr);
+  const teor=dashPracticalText(v.teo);
+  const sub=dashPracticalText(v.sub)||`${fmtQty(v.neto??v.cant??0)} ${v.unit||'unidad'}`;
+  return `<b style="color:${color}">${practical||sub}</b><div style="font-size:.68rem;color:var(--gray)">${[teor,sub].filter(Boolean).join(' - ')}</div>`;
+}
 async function renderDash(){
   if(!document.getElementById('dash-fecha-input').value) document.getElementById('dash-fecha-input').value=hoy();
   const{desde,hasta,lbl}=_dashRango();
@@ -1862,29 +2086,29 @@ async function renderDash(){
   document.getElementById('dash-fecha').textContent=lbl.charAt(0).toUpperCase()+lbl.slice(1);
   ['dash-lbl-periodo','dash-lbl-periodo2','dash-lbl-periodo3'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=_dashPeriodo==='dia'?'Hoy':_dashPeriodo==='semana'?'Esta Semana':'Este Mes'});
   document.getElementById('sgrid').innerHTML=`
-    <div class="scard"><div class="slbl">Insumos Ingresados</div><div class="sval">${entHoy.reduce((s,r)=>s+r.cantidad,0)}</div><div class="ssub">${entHoy.length} línea(s)</div></div>
-    <div class="scard gd"><div class="slbl">Insumos Usados</div><div class="sval">${salIHoy.reduce((s,r)=>s+r.cantidad,0)}</div><div class="ssub">${salIHoy.length} línea(s)</div></div>
+    <div class="scard"><div class="slbl">Insumos Ingresados</div><div class="sval">${entHoy.reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0)}</div><div class="ssub">${entHoy.length} línea(s)</div></div>
+    <div class="scard gd"><div class="slbl">Insumos Usados</div><div class="sval">${salIHoy.reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0)}</div><div class="ssub">${salIHoy.length} línea(s)</div></div>
     <div class="scard g"><div class="slbl">Producción Neta</div><div class="sval">${prodHoy.reduce((s,r)=>s+r.neto,0)}</div><div class="ssub">${prodHoy.length} lote(s)</div></div>
-    <div class="scard b"><div class="slbl">Salidas Productos</div><div class="sval">${spHoy.reduce((s,r)=>s+r.cantidad,0)}</div><div class="ssub">${spHoy.length} despacho(s)</div></div>`;
+    <div class="scard b"><div class="slbl">Salidas Productos</div><div class="sval">${spHoy.reduce((s,r)=>s+prodOutBaseQty(r),0)}</div><div class="ssub">${spHoy.length} despacho(s)</div></div>`;
   const insMap={};
-  entHoy.forEach(r=>{if(!insMap[r.insumo])insMap[r.insumo]={e:0,s:0};insMap[r.insumo].e+=r.cantidad});
-  salIHoy.forEach(r=>{if(!insMap[r.insumo])insMap[r.insumo]={e:0,s:0};insMap[r.insumo].s+=r.cantidad});
+  entHoy.forEach(r=>{if(!insMap[r.insumo])insMap[r.insumo]={e:0,s:0,eu:getBaseUnit('insumos',r.insumo),ep:{},sp:{}};insMap[r.insumo].e+=baseQtyForRecord(r,'insumos','insumo');insMap[r.insumo].eu=r.unidadBase||insMap[r.insumo].eu;dashAddPractical(insMap[r.insumo].ep,r.cantidad,r.unidad)});
+  salIHoy.forEach(r=>{if(!insMap[r.insumo])insMap[r.insumo]={e:0,s:0,eu:getBaseUnit('insumos',r.insumo),ep:{},sp:{}};insMap[r.insumo].s+=baseQtyForRecord(r,'insumos','insumo');insMap[r.insumo].eu=r.unidadBase||insMap[r.insumo].eu;dashAddPractical(insMap[r.insumo].sp,r.cantidad,r.unidad)});
   const t1=document.querySelector('#dash-ins-t tbody');const insKeys=Object.keys(insMap);
-  t1.innerHTML=insKeys.length?insKeys.map(n=>`<tr><td><b>${n}</b></td><td style="color:var(--green)">${insMap[n].e}</td><td style="color:var(--red)">${insMap[n].s}</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin movimientos</td></tr>`;
+  t1.innerHTML=insKeys.length?insKeys.map(n=>`<tr><td><b>${n}</b></td><td>${dashQtyHtml(insMap[n].ep,insMap[n].e,insMap[n].eu,'var(--green)')}</td><td>${dashQtyHtml(insMap[n].sp,insMap[n].s,insMap[n].eu,'var(--red)')}</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin movimientos</td></tr>`;
   // Producción agrupada por producto en semana/mes
   if(_dashPeriodo!=='dia'){
-    const prodMap={};prodHoy.forEach(r=>{if(!prodMap[r.producto])prodMap[r.producto]={tipo:r.tipo,neto:0};prodMap[r.producto].neto+=r.neto});
-    document.querySelector('#dash-prod-t tbody').innerHTML=Object.keys(prodMap).length?Object.entries(prodMap).map(([p,v])=>`<tr><td>${p}</td><td><span class="badge ${v.tipo==='pan'?'bpan':'bpast'}">${v.tipo==='pan'?'Pan':'Pastel'}</span></td><td><b>${v.neto}</b></td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin producción</td></tr>`;
-    const salMap={};spHoy.forEach(r=>{if(!salMap[r.producto])salMap[r.producto]={cant:0};salMap[r.producto].cant+=r.cantidad});
-    document.querySelector('#dash-sal-t tbody').innerHTML=Object.keys(salMap).length?Object.entries(salMap).map(([p,v])=>`<tr><td>${p}</td><td>${v.cant}</td><td>—</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin salidas</td></tr>`;
+    const prodMap={};prodHoy.forEach(r=>{if(!prodMap[r.producto])prodMap[r.producto]={tipo:r.tipo,neto:0,unit:r.unidadSub||r.unidadBase||getBaseUnit(r.tipo==='pastel'?'pasteles':'panes',r.producto),pr:{},teo:{},sub:{}};prodMap[r.producto].neto+=r.neto;dashAddPractical(prodMap[r.producto].pr,r.cantidadPresentacion||r.cantidad,r.unidad);dashAddPractical(prodMap[r.producto].teo,prodCantidadTeorica(r),r.unidadTeorica||'lata');dashAddPractical(prodMap[r.producto].sub,r.cantidad,r.unidadSub||r.unidadBase)});
+    document.querySelector('#dash-prod-t tbody').innerHTML=Object.keys(prodMap).length?Object.entries(prodMap).map(([p,v])=>`<tr><td>${p}</td><td><span class="badge ${v.tipo==='pan'?'bpan':'bpast'}">${v.tipo==='pan'?'Pan':'Pastel'}</span></td><td>${dashProdHtml(v,'var(--green)')}</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin producción</td></tr>`;
+    const salMap={};spHoy.forEach(r=>{if(!salMap[r.producto])salMap[r.producto]={cant:0,unit:r.unidadBase||getBaseUnit(r.categoria==='Pasteles'?'pasteles':'panes',r.producto),pr:{}};salMap[r.producto].cant+=prodOutBaseQty(r);dashAddPractical(salMap[r.producto].pr,r.cantidad,r.unidad)});
+    document.querySelector('#dash-sal-t tbody').innerHTML=Object.keys(salMap).length?Object.entries(salMap).map(([p,v])=>`<tr><td>${p}</td><td>${dashQtyHtml(v.pr,v.cant,v.unit,'var(--red)')}</td><td>—</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin salidas</td></tr>`;
   }else{
-    document.querySelector('#dash-prod-t tbody').innerHTML=prodHoy.length?prodHoy.map(r=>`<tr><td>${r.producto}</td><td><span class="badge ${r.tipo==='pan'?'bpan':'bpast'}">${r.tipo==='pan'?'Pan':'Pastel'}</span></td><td><b>${r.neto}</b></td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin producción hoy</td></tr>`;
-    document.querySelector('#dash-sal-t tbody').innerHTML=spHoy.length?spHoy.map(r=>`<tr><td>${r.producto}</td><td>${r.cantidad}</td><td>${r.destino||'—'}</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin salidas hoy</td></tr>`;
+    document.querySelector('#dash-prod-t tbody').innerHTML=prodHoy.length?prodHoy.map(r=>`<tr><td>${r.producto}</td><td><span class="badge ${r.tipo==='pan'?'bpan':'bpast'}">${r.tipo==='pan'?'Pan':'Pastel'}</span></td><td>${prodCantidadTexto(r)}</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin producción hoy</td></tr>`;
+    document.querySelector('#dash-sal-t tbody').innerHTML=spHoy.length?spHoy.map(r=>`<tr><td>${r.producto}</td><td>${dashQtyHtml(Object.fromEntries([[r.unidad||'unidad',r.cantidad]]),prodOutBaseQty(r),r.unidadBase||getBaseUnit(r.categoria==='Pasteles'?'pasteles':'panes',r.producto),'var(--red)')}</td><td>${r.destino||'—'}</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin salidas hoy</td></tr>`;
   }
   const getInvL=key=>{const r=invR.find(r=>r.key===key);return r||{si:0,aj:0,min:0}};
   const criticos=cats.insumos.map(n=>{
-    const e=ent.filter(r=>r.insumo===n).reduce((s,r)=>s+r.cantidad,0);
-    const s=salI.filter(r=>r.insumo===n).reduce((s,r)=>s+r.cantidad,0);
+    const e=ent.filter(r=>r.insumo===n).reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0);
+    const s=salI.filter(r=>r.insumo===n).reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0);
     const inv=getInvL('ins_'+n);const stock=(inv.si||0)+e-s+(inv.aj||0);const min=inv.min||0;return{n,stock,min};
   }).filter(x=>x.min>0&&x.stock<=x.min);
   document.querySelector('#dash-crit-t tbody').innerHTML=criticos.length?criticos.map(x=>`<tr style="background:#FFF0F0"><td><b>${x.n}</b></td><td class="stock-red">${x.stock}</td><td>${x.min}</td></tr>`).join(''):`<tr><td colspan="3" style="text-align:center;color:var(--green);padding:14px">✅ Todo sobre el mínimo</td></tr>`;
@@ -1902,7 +2126,7 @@ async function exportarExcel(){
   XLSX.utils.book_append_sheet(wb,mkSheet(prod,[{key:'fecha',label:'Fecha'},{key:'tipo',label:'Categoría'},{key:'turno',label:'Turno'},{key:'producto',label:'Producto'},{key:'unidad',label:'Unidad'},{key:'cantidad',label:'Producido'},{key:'defectuosa',label:'Defectuoso'},{key:'neto',label:'Neto'},{key:'obs',label:'Obs.'}]),'Producción');
   XLSX.utils.book_append_sheet(wb,mkSheet(sp,[{key:'fecha',label:'Fecha'},{key:'categoria',label:'Categoría'},{key:'producto',label:'Producto'},{key:'unidad',label:'Unidad'},{key:'cantidad',label:'Cantidad'},{key:'destino',label:'Destino'},{key:'encargado',label:'Encargado'},{key:'documento',label:'N° Doc.'},{key:'obs',label:'Obs.'}]),'Salida de Productos');
   const getInv=key=>{const r=invR.find(r=>r.key===key);return r||{si:0,aj:0,min:0}};
-  const invData=cats.insumos.map(n=>{const e=ent.filter(r=>r.insumo===n).reduce((s,r)=>s+r.cantidad,0);const s=salI.filter(r=>r.insumo===n).reduce((s,r)=>s+r.cantidad,0);const inv=getInv('ins_'+n);const stock=(inv.si||0)+e-s+(inv.aj||0);return{insumo:n,entradas:e,salidas:s,stock_inicial:inv.si||0,ajuste:inv.aj||0,stock_actual:stock,minimo:inv.min||0,estado:stock<=(inv.min||0)&&(inv.min||0)>0?'⚠ Bajo mínimo':'OK'}});
+  const invData=cats.insumos.map(n=>{const e=ent.filter(r=>r.insumo===n).reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0);const s=salI.filter(r=>r.insumo===n).reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0);const inv=getInv('ins_'+n);const stock=(inv.si||0)+e-s+(inv.aj||0);return{insumo:n,entradas:e,salidas:s,stock_inicial:inv.si||0,ajuste:inv.aj||0,stock_actual:stock,minimo:inv.min||0,estado:stock<=(inv.min||0)&&(inv.min||0)>0?'⚠ Bajo mínimo':'OK'}});
   XLSX.utils.book_append_sheet(wb,mkSheet(invData,[{key:'insumo',label:'Insumo'},{key:'entradas',label:'Entradas'},{key:'salidas',label:'Salidas'},{key:'stock_inicial',label:'Stk. Inicial'},{key:'ajuste',label:'Ajuste'},{key:'stock_actual',label:'Stock Actual'},{key:'minimo',label:'Stock Mínimo'},{key:'estado',label:'Estado'}]),'Inventario Insumos');
   XLSX.writeFile(wb,`PanControl_Reporte_${today}.xlsx`);toast('📊 Reporte exportado');
 }
