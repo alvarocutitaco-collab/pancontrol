@@ -858,7 +858,7 @@ body.viewer-mode .cat-add-row{display:none!important}
       <div class="fgrid">
         <div class="fg"><label>Fecha</label><input type="date" id="pp-fecha"></div>
         <div class="fg"><label>Turno</label><select id="pp-turno"><option value="">Seleccionar...</option><option>Mañana</option><option>Tarde</option><option>Noche</option></select></div>
-        <div class="fg"><label>Tipo de Pan</label><select id="pp-tipo" onchange="updateCatalogUnitSelect('panes',this.value,'pp-und');updateProdEquiv('pp','panes')"><option value="">Seleccionar...</option></select></div>
+        <div class="fg"><label>Tipo de Pan</label><input type="text" id="pp-tipo" list="panes-options" placeholder="Buscar pan..." oninput="updateCatalogUnitSelect('panes',this.value,'pp-und');updateProdEquiv('pp','panes')" onchange="updateCatalogUnitSelect('panes',this.value,'pp-und');updateProdEquiv('pp','panes')"></div>
         <div class="fg"><label>Presentación</label><select id="pp-und" onchange="updateProdEquiv('pp','panes')"><option value="">Selecciona producto...</option></select></div>
         <div class="fg"><label>Cant. presentación</label><input type="number" id="pp-pres-cant" min="0" step="0.01" placeholder="0" oninput="calcProdBase('pp')"></div>
         <div class="fg"><label>Unidad teórica</label><input type="text" id="pp-teo-und" list="unit-options" placeholder="lata" oninput="calcProdBase('pp')"></div>
@@ -885,7 +885,7 @@ body.viewer-mode .cat-add-row{display:none!important}
       <div class="fgrid">
         <div class="fg"><label>Fecha</label><input type="date" id="pa-fecha"></div>
         <div class="fg"><label>Turno</label><select id="pa-turno"><option value="">Seleccionar...</option><option>Mañana</option><option>Tarde</option><option>Noche</option></select></div>
-        <div class="fg"><label>Tipo de Pastel</label><select id="pa-tipo" onchange="updateCatalogUnitSelect('pasteles',this.value,'pa-und');updateProdEquiv('pa','pasteles')"><option value="">Seleccionar...</option></select></div>
+        <div class="fg"><label>Tipo de Pastel</label><input type="text" id="pa-tipo" list="pasteles-options" placeholder="Buscar pastel..." oninput="updateCatalogUnitSelect('pasteles',this.value,'pa-und');updateProdEquiv('pa','pasteles')" onchange="updateCatalogUnitSelect('pasteles',this.value,'pa-und');updateProdEquiv('pa','pasteles')"></div>
         <div class="fg"><label>Presentación</label><select id="pa-und" onchange="updateProdEquiv('pa','pasteles')"><option value="">Selecciona producto...</option></select></div>
         <div class="fg"><label>Cant. presentación</label><input type="number" id="pa-pres-cant" min="0" step="0.01" placeholder="0" oninput="calcProdBase('pa')"></div>
         <div class="fg"><label>Unidad teórica</label><input type="text" id="pa-teo-und" list="unit-options" placeholder="bandeja/lata/caja" oninput="calcProdBase('pa')"></div>
@@ -917,7 +917,7 @@ body.viewer-mode .cat-add-row{display:none!important}
     <div class="fgrid">
       <div class="fg"><label>Fecha</label><input type="date" id="sp-fecha"></div>
       <div class="fg"><label>Categoría</label><select id="sp-cat" onchange="fillProdSelect()"><option value="">Seleccionar...</option><option>Panes</option><option>Pasteles</option></select></div>
-      <div class="fg"><label>Producto</label><select id="sp-prod" onchange="updateSalidaUnitSelect()"><option value="">Seleccionar categoría...</option></select></div>
+      <div class="fg"><label>Producto</label><input type="text" id="sp-prod" list="salida-prod-options" placeholder="Buscar producto..." oninput="updateSalidaUnitSelect()" onchange="updateSalidaUnitSelect()"></div>
       <div class="fg"><label>Unidad</label><select id="sp-und"><option value="">Selecciona producto...</option></select></div>
       <div class="fg"><label>Cantidad</label><input type="number" id="sp-cant" min="0" placeholder="0"></div>
       <div class="fg"><label>Destino / Cliente</label><select id="sp-dest"><option value="">Seleccionar...</option></select></div>
@@ -1489,9 +1489,10 @@ async function saveCatalogos(){
   await cloudSaveCats(rec);fillSelects();toast('✅ Catálogos guardados');
 }
 function fillSelects(){
-  const mkOpts=arr=>'<option value="">Seleccionar...</option>'+arr.map(n=>`<option>${n}</option>`).join('');
-  document.getElementById('pp-tipo').innerHTML=mkOpts(cats.panes);
-  document.getElementById('pa-tipo').innerHTML=mkOpts(cats.pasteles);
+  const setList=(id,arr)=>{let dl=document.getElementById(id);if(!dl){dl=document.createElement('datalist');dl.id=id;document.body.appendChild(dl)}dl.innerHTML=(arr||[]).map(n=>`<option value="${escAttr(n)}"></option>`).join('')};
+  setList('insumos-options',cats.insumos);
+  setList('panes-options',cats.panes);
+  setList('pasteles-options',cats.pasteles);
   updateCatalogUnitSelect('panes',v('pp-tipo'),'pp-und');
   updateCatalogUnitSelect('pasteles',v('pa-tipo'),'pa-und');
   updateProdEquiv('pp','panes');
@@ -1541,8 +1542,11 @@ function quitarEncargado(idx){
 }
 function fillProdSelect(){
   const cat=v('sp-cat'),s=document.getElementById('sp-prod');
-  if(!cat){s.innerHTML='<option value="">Seleccionar categoría...</option>';updateSalidaUnitSelect();return}
-  s.innerHTML='<option value="">Seleccionar...</option>'+(cat==='Panes'?cats.panes:cats.pasteles).map(n=>`<option>${n}</option>`).join('');
+  let dl=document.getElementById('salida-prod-options');if(!dl){dl=document.createElement('datalist');dl.id='salida-prod-options';document.body.appendChild(dl)}
+  if(!cat){if(s)s.value='';dl.innerHTML='';updateSalidaUnitSelect();return}
+  const arr=cat==='Panes'?cats.panes:cats.pasteles;
+  dl.innerHTML=arr.map(n=>`<option value="${escAttr(n)}"></option>`).join('');
+  if(s&&s.value&&!arr.includes(s.value))s.value='';
   updateSalidaUnitSelect();
 }
 
@@ -1551,10 +1555,9 @@ function fillProdSelect(){
 // ════════════════════════════════════════════
 let lineaEntCnt=0,lineaSalCnt=0;
 function mkInsLine(uid,containerId,showPrecio){
-  const ins=cats.insumos.map(n=>`<option>${n}</option>`).join('');
   return`<div class="row-ins" id="${containerId}-line-${uid}">
     <div class="fgrid">
-      <div class="fg"><label>Insumo</label><select class="li" onchange="updateInsumoLineUnit(this)"><option value="">Seleccionar...</option>${ins}</select></div>
+      <div class="fg"><label>Insumo</label><input type="text" class="li" list="insumos-options" placeholder="Buscar insumo..." oninput="updateInsumoLineUnit(this)" onchange="updateInsumoLineUnit(this)"></div>
       <div class="fg"><label>Presentación</label><select class="lu" onchange="updateInsumoEquiv(this.closest('.row-ins'))"><option value="">Selecciona insumo...</option></select></div>
       <div class="fg"><label>Cantidad</label><input type="number" class="lc" min="0" step="0.01" placeholder="0" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
       <div class="fg"><label>Unidad equivalencia</label><input type="text" list="unit-options" class="lbu" placeholder="litro, kilo, libra" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
