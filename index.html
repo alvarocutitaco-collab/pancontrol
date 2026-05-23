@@ -801,6 +801,7 @@ body.viewer-mode .cat-add-row{display:none!important}
         </div>
         <div class="fg"><label>N° Documento</label><input type="text" id="ent-numdoc" placeholder="001-00123"></div>
         <div class="fg"><label>Proveedor</label><input type="text" id="ent-prov" placeholder="Nombre"></div>
+        <div class="fg"><label>Total Documento</label><input type="number" id="ent-total-doc" min="0" step="0.01" placeholder="0.00" readonly></div>
       </div>
       <div style="font-size:.75rem;font-weight:700;color:var(--brown2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">Líneas de Insumos:</div>
       <div id="lineas-entrada"></div>
@@ -818,7 +819,7 @@ body.viewer-mode .cat-add-row{display:none!important}
         </div>
       </div>
       <div class="table-wrap"><table id="ent-table">
-        <thead><tr><th>#</th><th>Fecha</th><th>Doc.</th><th>N°Doc</th><th>Insumo</th><th>Unidad</th><th>Cant.</th><th>Precio</th><th>Proveedor</th><th>Obs.</th><th>✏️</th><th>🗑</th></tr></thead>
+        <thead><tr><th>#</th><th>Fecha</th><th>Doc.</th><th>N°Doc</th><th>Insumo</th><th>Unidad</th><th>Cant.</th><th>P. Unit.</th><th>Total Producto</th><th>Total Doc.</th><th>Proveedor</th><th>Obs.</th><th>✏️</th><th>🗑</th></tr></thead>
         <tbody></tbody>
       </table></div>
     </div>
@@ -1220,6 +1221,7 @@ function normalizeUnitList(value){
 }
 function toNum(v){const n=parseFloat(String(v??'').replace(',','.'));return Number.isFinite(n)?n:0}
 function fmtQty(n){const x=toNum(n);return Number.isInteger(x)?String(x):String(Math.round(x*1000)/1000)}
+function money(n){const x=toNum(n);return x>0?'S/. '+x.toFixed(2):'—'}
 function factorFromText(value){
   if(typeof value==='number')return value>0?value:0;
   const txt=String(value??'').trim().replace(/,/g,'.');
@@ -1625,10 +1627,10 @@ function mkInsLine(uid,containerId,showPrecio){
       <div class="fg"><label>Unidad equivalencia</label><input type="text" list="unit-options" class="lbu" placeholder="litro, kilo, libra" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
       <div class="fg"><label>Equiv. a base</label><input type="number" class="lf" min="0" step="0.0001" placeholder="1" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
       <div class="fg"><label>Cantidad base</label><input type="text" class="lb" readonly placeholder="0"></div>
-      ${showPrecio?`<div class="fg"><label>Precio Unit.</label><input type="number" class="lp" min="0" step="0.01" placeholder="0.00"></div>`:''}
+      ${showPrecio?`<div class="fg"><label>Precio Total</label><input type="number" class="lpt" min="0" step="0.01" placeholder="0.00" oninput="updateInsumoEquiv(this.closest('.row-ins'));updateEntradaDocTotal()"></div><div class="fg"><label>Precio Unit.</label><input type="number" class="lp" min="0" step="0.01" placeholder="0.00" readonly></div>`:''}
       <div class="fg"><label>Obs.</label><input type="text" class="lo" placeholder="Opcional"></div>
     </div>
-    <button class="row-ins-del" onclick="document.getElementById('${containerId}-line-${uid}').remove()">✕ Quitar este insumo</button>
+    <button class="row-ins-del" onclick="document.getElementById('${containerId}-line-${uid}').remove();updateEntradaDocTotal()">✕ Quitar este insumo</button>
   </div>`;
 }
 function addLineaEntrada(){lineaEntCnt++;document.getElementById('lineas-entrada').insertAdjacentHTML('beforeend',mkInsLine(lineaEntCnt,'lineas-entrada',true))}
@@ -1649,6 +1651,19 @@ function updateInsumoEquiv(row){
   const base=baseInput?.value||getBaseUnit('insumos',ins);
   const lb=row.querySelector('.lb');
   if(lb)lb.value=ins&&cant>0?`${fmtQty(cant*factor)} ${base}`:'';
+  const totalInput=row.querySelector('.lpt');
+  const unitInput=row.querySelector('.lp');
+  if(totalInput&&unitInput){
+    const total=toNum(totalInput.value);
+    unitInput.value=total>0&&cant>0?fmtQty(total/cant):'';
+  }
+  updateEntradaDocTotal();
+}
+function updateEntradaDocTotal(){
+  const totalEl=document.getElementById('ent-total-doc');
+  if(!totalEl)return;
+  const total=Array.from(document.querySelectorAll('#lineas-entrada .lpt')).reduce((sum,input)=>sum+toNum(input.value),0);
+  totalEl.value=total>0?fmtQty(total):'';
 }
 function leerLineas(containerId){
   return Array.from(document.querySelectorAll('#'+containerId+' .row-ins')).map(row=>{
@@ -1656,11 +1671,13 @@ function leerLineas(containerId){
     const cantidad=toNum(row.querySelector('.lc')?.value);
     const factor=toNum(row.querySelector('.lf')?.value)||getEquivFactor('insumos',insumo,unidad);
     const unidadBase=(row.querySelector('.lbu')?.value||'').trim()||getBaseUnit('insumos',insumo);
+    const precioTotal=toNum(row.querySelector('.lpt')?.value);
+    const precio=toNum(row.querySelector('.lp')?.value)||(precioTotal>0&&cantidad>0?precioTotal/cantidad:0);
     return{
       insumo,unidad,cantidad,
       cantidadBase:cantidad*factor,unidadBase,
       factorBase:factor,equivDetalle:`${fmtQty(factor)} ${unidadBase} por ${unidad||'presentación'}`,
-      precio:toNum(row.querySelector('.lp')?.value),
+      precio,precioTotal,
       obs:row.querySelector('.lo')?.value||''
     };
   });
@@ -1679,13 +1696,14 @@ async function guardarEntrada(){
   const lineas=leerLineas('lineas-entrada').filter(l=>l.insumo&&l.cantidad>0);
   if(!lineas.length){toast('⚠ Agrega al menos un insumo con cantidad','var(--red)');return}
   if(lineas.some(l=>!l.unidad||l.factorBase<=0||l.cantidadBase<=0)){toast('⚠ Revisa presentación y equivalencia','var(--red)');return}
+  const totalDoc=toNum(v('ent-total-doc'))||lineas.reduce((sum,l)=>sum+(l.precioTotal||0),0);
   for(const l of lineas){
-    const data={fecha,tipodoc,numdoc,proveedor:prov,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,cantidadBase:l.cantidadBase,unidadBase:l.unidadBase,factorBase:l.factorBase,equivDetalle:l.equivDetalle,precio:l.precio||0,obs:l.obs||''};
+    const data={fecha,tipodoc,numdoc,proveedor:prov,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,cantidadBase:l.cantidadBase,unidadBase:l.unidadBase,factorBase:l.factorBase,equivDetalle:l.equivDetalle,precio:l.precio||0,precioTotal:l.precioTotal||0,totalDoc,obs:l.obs||''};
     const id=await dbAdd('entradas',data);
     await cloudAdd('entradas',id,data);
   }
   document.getElementById('lineas-entrada').innerHTML='';lineaEntCnt=0;
-  ['ent-tipodoc','ent-numdoc','ent-prov'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
+  ['ent-tipodoc','ent-numdoc','ent-prov','ent-total-doc'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
   toast(`✅ ${lineas.length} insumo(s) registrados`);renderEntradas();addLineaEntrada();
 }
 async function renderEntradas(){
@@ -1695,13 +1713,15 @@ async function renderEntradas(){
   const f=fEl.value;
   const data=rows.filter(r=>r.fecha===f).reverse();
   const tb=document.querySelector('#ent-table tbody');
-  if(!data.length){tb.innerHTML=empty(12);return}
+  if(!data.length){tb.innerHTML=empty(14);return}
   tb.innerHTML=data.map((r,i)=>`<tr>
     <td>${i+1}</td><td>${fmt(r.fecha)}</td>
     <td><span class="badge bins">${r.tipodoc||'—'}</span></td>
     <td>${r.numdoc||'—'}</td><td><b>${r.insumo}</b></td>
     <td>${r.unidad||'—'}${r.equivDetalle?`<div style="font-size:.65rem;color:var(--gray)">${r.equivDetalle}</div>`:''}</td><td>${insumoCantidadTexto(r)}</td>
-    <td>${r.precio?'S/.'+r.precio.toFixed(2):'—'}</td>
+    <td>${money(r.precio)}</td>
+    <td>${money(r.precioTotal||((r.precio||0)*(r.cantidad||0)))}</td>
+    <td>${money(r.totalDoc)}</td>
     <td>${r.proveedor||'—'}</td><td>${r.obs||'—'}</td>
     <td><button class="btn bsec bsm edit-btn" onclick="openEdit('entradas',${r.id})">✏️</button></td>
     <td><button class="btn br bsm del-btn" onclick="del('entradas',${r.id},renderEntradas)">🗑</button></td>
@@ -2025,7 +2045,7 @@ function unitOptionsForRecord(store,rec){
   return [];
 }
 const FIELDS={
-  entradas:[{k:'fecha',l:'Fecha',t:'date'},{k:'tipodoc',l:'Tipo Doc.',t:'sel',opts:['Boleta','Factura','Otro']},{k:'numdoc',l:'N° Documento',t:'text'},{k:'insumo',l:'Insumo',t:'selCat',cat:'insumos'},{k:'unidad',l:'Unidad práctica',t:'sel',opts:['kilogramo','litro','mililitro','balde','casillero']},{k:'cantidad',l:'Cantidad',t:'num'},{k:'unidadBase',l:'Unidad equivalencia',t:'text'},{k:'factorBase',l:'Equiv. por unidad',t:'num'},{k:'precio',l:'Precio Unit.',t:'num'},{k:'proveedor',l:'Proveedor',t:'text'},{k:'obs',l:'Obs.',t:'text'}],
+  entradas:[{k:'fecha',l:'Fecha',t:'date'},{k:'tipodoc',l:'Tipo Doc.',t:'sel',opts:['Boleta','Factura','Otro']},{k:'numdoc',l:'N° Documento',t:'text'},{k:'insumo',l:'Insumo',t:'selCat',cat:'insumos'},{k:'unidad',l:'Unidad práctica',t:'sel',opts:['kilogramo','litro','mililitro','balde','casillero']},{k:'cantidad',l:'Cantidad',t:'num'},{k:'unidadBase',l:'Unidad equivalencia',t:'text'},{k:'factorBase',l:'Equiv. por unidad',t:'num'},{k:'precio',l:'Precio Unit.',t:'num'},{k:'precioTotal',l:'Precio Total',t:'num'},{k:'totalDoc',l:'Total Doc.',t:'num'},{k:'proveedor',l:'Proveedor',t:'text'},{k:'obs',l:'Obs.',t:'text'}],
   salidas_ins:[{k:'fecha',l:'Fecha',t:'date'},{k:'motivo',l:'Motivo',t:'sel',opts:['Usado en Producción','Merma / Pérdida','Devolución','Otro']},{k:'ticket',l:'Ticket',t:'text'},{k:'insumo',l:'Insumo',t:'selCat',cat:'insumos'},{k:'unidad',l:'Unidad práctica',t:'sel',opts:['kilogramo','litro','mililitro','balde','casillero']},{k:'cantidad',l:'Cantidad',t:'num'},{k:'unidadBase',l:'Unidad equivalencia',t:'text'},{k:'factorBase',l:'Equiv. por unidad',t:'num'},{k:'obs',l:'Obs.',t:'text'}],
   produccion:[{k:'fecha',l:'Fecha',t:'date'},{k:'turno',l:'Turno',t:'sel',opts:['Mañana','Tarde','Noche']},{k:'producto',l:'Producto',t:'text'},{k:'unidad',l:'Unidad práctica',t:'sel',opts:UND_PROD},{k:'cantidadPresentacion',l:'Cant. práctica',t:'num'},{k:'unidadTeorica',l:'Unidad teórica',t:'text'},{k:'eqA',l:'Cant. teórica total',t:'num'},{k:'unidadSub',l:'Sub unidad',t:'text'},{k:'cantidad',l:'Cant. sub unidad total',t:'num'},{k:'defectuosa',l:'Cant. Defectuosa',t:'num'},{k:'obs',l:'Obs.',t:'text'}],
   salida_prod:[{k:'fecha',l:'Fecha',t:'date'},{k:'categoria',l:'Categoría',t:'sel',opts:['Panes','Pasteles']},{k:'producto',l:'Producto',t:'text'},{k:'unidad',l:'Unidad',t:'sel',opts:UND_PROD},{k:'cantidad',l:'Cantidad',t:'num'},{k:'destino',l:'Destino',t:'text'},{k:'documento',l:'N° Doc.',t:'text'},{k:'obs',l:'Obs.',t:'text'}]
@@ -2214,7 +2234,7 @@ async function exportarExcel(){
   const[ent,salI,prod,sp,invR]=await Promise.all([dbAll('entradas'),dbAll('salidas_ins'),dbAll('produccion'),dbAll('salida_prod'),dbAll('inventario')]);
   const wb=XLSX.utils.book_new();const today=hoy();
   const mkSheet=(data,cols)=>{const rows=[cols.map(c=>c.label),...data.map(r=>cols.map(c=>r[c.key]??''))];return XLSX.utils.aoa_to_sheet(rows)};
-  XLSX.utils.book_append_sheet(wb,mkSheet(ent,[{key:'fecha',label:'Fecha'},{key:'tipodoc',label:'Tipo Doc.'},{key:'numdoc',label:'N° Doc.'},{key:'insumo',label:'Insumo'},{key:'unidad',label:'Unidad'},{key:'cantidad',label:'Cantidad'},{key:'precio',label:'Precio Unit.'},{key:'proveedor',label:'Proveedor'},{key:'obs',label:'Obs.'}]),'Entradas de Insumos');
+  XLSX.utils.book_append_sheet(wb,mkSheet(ent,[{key:'fecha',label:'Fecha'},{key:'tipodoc',label:'Tipo Doc.'},{key:'numdoc',label:'N° Doc.'},{key:'insumo',label:'Insumo'},{key:'unidad',label:'Unidad'},{key:'cantidad',label:'Cantidad'},{key:'precio',label:'Precio Unit.'},{key:'precioTotal',label:'Precio Total'},{key:'totalDoc',label:'Total Doc.'},{key:'proveedor',label:'Proveedor'},{key:'obs',label:'Obs.'}]),'Entradas de Insumos');
   XLSX.utils.book_append_sheet(wb,mkSheet(salI,[{key:'fecha',label:'Fecha'},{key:'motivo',label:'Motivo'},{key:'ticket',label:'Ticket'},{key:'insumo',label:'Insumo'},{key:'unidad',label:'Unidad'},{key:'cantidad',label:'Cantidad'},{key:'obs',label:'Obs.'}]),'Salidas de Insumos');
   XLSX.utils.book_append_sheet(wb,mkSheet(prod,[{key:'fecha',label:'Fecha'},{key:'tipo',label:'Categoría'},{key:'turno',label:'Turno'},{key:'producto',label:'Producto'},{key:'unidad',label:'Unidad'},{key:'cantidad',label:'Producido'},{key:'defectuosa',label:'Defectuoso'},{key:'neto',label:'Neto'},{key:'obs',label:'Obs.'}]),'Producción');
   XLSX.utils.book_append_sheet(wb,mkSheet(sp,[{key:'fecha',label:'Fecha'},{key:'categoria',label:'Categoría'},{key:'producto',label:'Producto'},{key:'unidad',label:'Unidad'},{key:'cantidad',label:'Cantidad'},{key:'destino',label:'Destino'},{key:'encargado',label:'Encargado'},{key:'documento',label:'N° Doc.'},{key:'obs',label:'Obs.'}]),'Salida de Productos');
