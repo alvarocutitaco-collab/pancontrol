@@ -1479,7 +1479,6 @@ async function loadCats(){
 function renderCats(){
   const g=document.getElementById('cat-grid');
   const isViewer=document.body.classList.contains('viewer-mode');
-  const addUnitField=(key,inputId)=>key==='panes'||key==='pasteles'?'':`<input class="add-item-input" type="text" list="unit-options" id="${inputId}-unidad" placeholder="Unidad...">`;
   const sec=(key,lbl,color,inputId)=>`<div class="cat-section">
     <div class="cat-title" style="color:${color}">${lbl}</div>
     <div class="cat-items-grid">
@@ -1490,7 +1489,7 @@ function renderCats(){
         ${isViewer?'':'<button onclick="quitarCatItem(\''+key+'\','+i+')" style="border:none;background:none;color:var(--gray);cursor:pointer;font-size:.7rem;padding:0 2px;flex-shrink:0;line-height:1" title="Quitar">✕</button>'}
       </div>`).join('')}
     </div>
-    ${isViewer?'':'<div class="add-item-row cat-add-row"><input class="add-item-input" type="text" id="'+inputId+'" placeholder="Nuevo elemento...">'+addUnitField(key,inputId)+'<button class="add-item-btn" style="background:'+color+'" onclick="agregarCatItem(\''+key+'\',\''+inputId+'\')">+ Agregar</button></div>'}
+    ${isViewer?'':'<div class="add-item-row cat-add-row"><input class="add-item-input" type="text" id="'+inputId+'" placeholder="Nuevo elemento..."><input class="add-item-input" type="text" list="unit-options" id="'+inputId+'-unidad" placeholder="Unidad..."><button class="add-item-btn" style="background:'+color+'" onclick="agregarCatItem(\''+key+'\',\''+inputId+'\')">+ Agregar</button></div>'}
   </div>`;
   g.innerHTML='<datalist id="unit-options">'+UNIT_LIST.map(u=>`<option value="${escAttr(u)}"></option>`).join('')+'</datalist>'
              +sec('insumos','🌾 Insumos / Materia Prima','var(--orange)','new-insumo')
@@ -1623,11 +1622,14 @@ function mkInsLine(uid,containerId,showPrecio){
   return`<div class="row-ins" id="${containerId}-line-${uid}">
     <div class="fgrid">
       <div class="fg"><label>Insumo</label><input type="text" class="li" list="insumos-options" placeholder="Buscar insumo..." oninput="updateInsumoLineUnit(this)" onchange="updateInsumoLineUnit(this)"></div>
+      <div class="fg"><label>Cantidad</label><input type="number" class="lc" min="0" step="0.01" placeholder="Ej: 3" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
       <div class="fg"><label>Presentación</label><select class="lu" onchange="updateInsumoEquiv(this.closest('.row-ins'))"><option value="">Selecciona insumo...</option></select></div>
-      <div class="fg"><label>Cantidad</label><input type="number" class="lc" min="0" step="0.01" placeholder="0" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
-      <div class="fg"><label>Unidad equivalencia</label><input type="text" list="unit-options" class="lbu" placeholder="litro, kilo, libra" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
-      <div class="fg"><label>Equiv. a base</label><input type="number" class="lf" min="0" step="0.0001" placeholder="1" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
-      <div class="fg"><label>Cantidad base</label><input type="text" class="lb" readonly placeholder="0"></div>
+      <div class="fg"><label>Trae</label><input type="number" class="lpack" min="0" step="0.01" placeholder="Ej: 6" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
+      <div class="fg"><label>Unidad interna</label><input type="text" class="linner" placeholder="bolsita, tarro" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
+      <div class="fg"><label>Contenido c/u</label><input type="number" class="lcont" min="0" step="0.0001" placeholder="Ej: 800" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
+      <div class="fg"><label>Unidad base</label><input type="text" list="unit-options" class="lbu" placeholder="gramo, ml, kilo" oninput="updateInsumoEquiv(this.closest('.row-ins'))"></div>
+      <input type="hidden" class="lf" value="1">
+      <div class="fg"><label>Total base</label><input type="text" class="lb" readonly placeholder="0"></div>
       ${showPrecio?`<div class="fg"><label>Precio Total</label><input type="number" class="lpt" min="0" step="0.01" placeholder="0.00" oninput="updateInsumoEquiv(this.closest('.row-ins'));updateEntradaDocTotal()"></div><div class="fg"><label>Precio Unit.</label><input type="number" class="lp" min="0" step="0.01" placeholder="0.00" readonly></div>`:''}
       <div class="fg"><label>Obs.</label><input type="text" class="lo" placeholder="Opcional"></div>
     </div>
@@ -1642,14 +1644,22 @@ function updateInsumoEquiv(row){
   const cant=toNum(row.querySelector('.lc')?.value);
   const factorInput=row.querySelector('.lf');
   const catalogFactor=getEquivFactor('insumos',ins,unidad);
-  if(factorInput&&document.activeElement!==factorInput&&(factorInput.dataset.lastUnidad!==unidad||!factorInput.value)){
-    factorInput.value=catalogFactor>0?fmtQty(catalogFactor):'1';
-    factorInput.dataset.lastUnidad=unidad;
-  }
-  const factor=toNum(factorInput?.value)||catalogFactor;
+  const packInput=row.querySelector('.lpack');
+  const innerInput=row.querySelector('.linner');
+  const contentInput=row.querySelector('.lcont');
   const baseInput=row.querySelector('.lbu');
   if(baseInput&&!baseInput.value&&document.activeElement!==baseInput)baseInput.value=getBaseUnit('insumos',ins);
   const base=baseInput?.value||getBaseUnit('insumos',ins);
+  if(packInput&&!packInput.value&&document.activeElement!==packInput)packInput.value='1';
+  if(innerInput&&!innerInput.value&&document.activeElement!==innerInput)innerInput.value=unidad||'unidad';
+  if(contentInput&&document.activeElement!==contentInput&&(contentInput.dataset.lastUnidad!==unidad||!contentInput.value)){
+    contentInput.value=catalogFactor>0?fmtQty(catalogFactor):'1';
+    contentInput.dataset.lastUnidad=unidad;
+  }
+  const pack=toNum(packInput?.value)||1;
+  const content=toNum(contentInput?.value)||catalogFactor||1;
+  const factor=pack*content;
+  if(factorInput)factorInput.value=fmtQty(factor);
   const lb=row.querySelector('.lb');
   if(lb)lb.value=ins&&cant>0?`${fmtQty(cant*factor)} ${base}`:'';
   const totalInput=row.querySelector('.lpt');
@@ -1670,14 +1680,18 @@ function leerLineas(containerId){
   return Array.from(document.querySelectorAll('#'+containerId+' .row-ins')).map(row=>{
     const insumo=row.querySelector('.li')?.value||'',unidad=row.querySelector('.lu')?.value||'';
     const cantidad=toNum(row.querySelector('.lc')?.value);
-    const factor=toNum(row.querySelector('.lf')?.value)||getEquivFactor('insumos',insumo,unidad);
+    const pack=toNum(row.querySelector('.lpack')?.value)||1;
+    const unidadInterna=(row.querySelector('.linner')?.value||'').trim()||unidad||'unidad';
+    const contenido=toNum(row.querySelector('.lcont')?.value)||getEquivFactor('insumos',insumo,unidad)||1;
+    const factor=pack*contenido;
     const unidadBase=(row.querySelector('.lbu')?.value||'').trim()||getBaseUnit('insumos',insumo);
     const precioTotal=toNum(row.querySelector('.lpt')?.value);
     const precio=toNum(row.querySelector('.lp')?.value)||(precioTotal>0&&cantidad>0?precioTotal/cantidad:0);
     return{
       insumo,unidad,cantidad,
       cantidadBase:cantidad*factor,unidadBase,
-      factorBase:factor,equivDetalle:`${fmtQty(factor)} ${unidadBase} por ${unidad||'presentación'}`,
+      factorBase:factor,packInterno:pack,unidadInterna,contenidoInterno:contenido,
+      equivDetalle:`${fmtQty(pack)} ${unidadInterna} x ${fmtQty(contenido)} ${unidadBase} por ${unidad||'presentación'}`,
       precio,precioTotal,
       obs:row.querySelector('.lo')?.value||''
     };
@@ -1699,7 +1713,7 @@ async function guardarEntrada(){
   if(lineas.some(l=>!l.unidad||l.factorBase<=0||l.cantidadBase<=0)){toast('⚠ Revisa presentación y equivalencia','var(--red)');return}
   const totalDoc=toNum(v('ent-total-doc'))||lineas.reduce((sum,l)=>sum+(l.precioTotal||0),0);
   for(const l of lineas){
-    const data={fecha,tipodoc,numdoc,proveedor:prov,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,cantidadBase:l.cantidadBase,unidadBase:l.unidadBase,factorBase:l.factorBase,equivDetalle:l.equivDetalle,precio:l.precio||0,precioTotal:l.precioTotal||0,totalDoc,obs:l.obs||''};
+    const data={fecha,tipodoc,numdoc,proveedor:prov,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,cantidadBase:l.cantidadBase,unidadBase:l.unidadBase,factorBase:l.factorBase,packInterno:l.packInterno||1,unidadInterna:l.unidadInterna||'',contenidoInterno:l.contenidoInterno||0,equivDetalle:l.equivDetalle,precio:l.precio||0,precioTotal:l.precioTotal||0,totalDoc,obs:l.obs||''};
     const id=await dbAdd('entradas',data);
     await cloudAdd('entradas',id,data);
   }
@@ -1738,7 +1752,7 @@ async function guardarSalidaIns(){
   if(!lineas.length){toast('⚠ Agrega al menos un insumo con cantidad','var(--red)');return}
   if(lineas.some(l=>!l.unidad||l.factorBase<=0||l.cantidadBase<=0)){toast('⚠ Revisa presentación y equivalencia','var(--red)');return}
   for(const l of lineas){
-    const data={fecha,motivo,ticket,obs,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,cantidadBase:l.cantidadBase,unidadBase:l.unidadBase,factorBase:l.factorBase,equivDetalle:l.equivDetalle,obs_linea:l.obs||''};
+    const data={fecha,motivo,ticket,obs,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,cantidadBase:l.cantidadBase,unidadBase:l.unidadBase,factorBase:l.factorBase,packInterno:l.packInterno||1,unidadInterna:l.unidadInterna||'',contenidoInterno:l.contenidoInterno||0,equivDetalle:l.equivDetalle,obs_linea:l.obs||''};
     const id=await dbAdd('salidas_ins',data);
     await cloudAdd('salidas_ins',id,data);
   }
