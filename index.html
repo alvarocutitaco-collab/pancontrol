@@ -756,11 +756,11 @@ body.viewer-mode .cat-add-row{display:none!important}
   </div>
   <div class="card">
     <div class="card-title">⚙️ Panes <span id="dash-lbl-periodo2">Hoy</span></div>
-    <div class="table-wrap"><table id="dash-prod-panes-t"><thead><tr><th>Producto</th><th>Tipo</th><th>Neto (unidades finales)</th><th>Unidad práctica</th><th>Sub unidad</th></tr></thead><tbody></tbody></table></div>
+    <div class="table-wrap"><table id="dash-prod-panes-t"><thead><tr><th>Producto</th><th>Neto (unidades finales)</th><th>Unidad práctica</th><th>Sub unidad</th></tr></thead><tbody></tbody></table></div>
   </div>
   <div class="card">
     <div class="card-title">🎂 Pasteles <span id="dash-lbl-periodo4">Hoy</span></div>
-    <div class="table-wrap"><table id="dash-prod-pasteles-t"><thead><tr><th>Producto</th><th>Tipo</th><th>Neto</th></tr></thead><tbody></tbody></table></div>
+    <div class="table-wrap"><table id="dash-prod-pasteles-t"><thead><tr><th>Producto</th><th>Neto</th></tr></thead><tbody></tbody></table></div>
   </div>
   <div class="card">
     <div class="card-title">📤 Salidas <span id="dash-lbl-periodo3">Hoy</span></div>
@@ -878,13 +878,13 @@ body.viewer-mode .cat-add-row{display:none!important}
       <div class="fgrid">
         <div class="fg"><label>Fecha</label><input type="date" id="pp-fecha"></div>
         <div class="fg"><label>Turno</label><select id="pp-turno"><option value="">Seleccionar...</option><option>Mañana</option><option>Tarde</option><option>Noche</option></select></div>
-        <div class="fg"><label>Tipo de Pan</label><input type="text" id="pp-tipo" list="panes-options" placeholder="Buscar pan..." oninput="updateCatalogUnitSelect('panes',this.value,'pp-und');updateProdEquiv('pp','panes')" onchange="updateCatalogUnitSelect('panes',this.value,'pp-und');updateProdEquiv('pp','panes')"></div>
-        <div class="fg"><label>Presentación</label><select id="pp-und" onchange="updateProdEquiv('pp','panes')"><option value="">Selecciona producto...</option></select></div>
-        <div class="fg"><label>Cant. presentación</label><input type="number" id="pp-pres-cant" min="0" step="0.01" placeholder="0" oninput="calcProdBase('pp')"></div>
-        <div class="fg"><label>Unidad teórica</label><input type="text" id="pp-teo-und" list="unit-options" placeholder="lata" oninput="calcProdBase('pp')"></div>
-        <div class="fg"><label>Cant. teórica total</label><input type="number" id="pp-eq-a" min="0" step="0.01" placeholder="Total latas" oninput="calcProdBase('pp')"></div>
-        <div class="fg"><label>Sub unidad</label><input type="text" id="pp-sub-und" list="unit-options" placeholder="unidad" oninput="calcProdBase('pp')"></div>
-        <div class="fg"><label>Cant. sub unidad total</label><input type="number" id="pp-cant" min="0" step="0.01" placeholder="Total panes"></div>
+        <div class="fg"><label>Tipo de Pan</label><input type="text" id="pp-tipo" list="panes-options" placeholder="Buscar pan..." oninput="updateProdEquiv('pp','panes')" onchange="updateProdEquiv('pp','panes')"></div>
+        <input type="hidden" id="pp-sub-und" value="unidades">
+        <input type="hidden" id="pp-und" value="lata">
+        <input type="hidden" id="pp-teo-und" value="quintal">
+        <div class="fg"><label>Unidades</label><input type="number" id="pp-cant" min="0" step="0.01" placeholder="Total unidades finales"></div>
+        <div class="fg"><label>Latas</label><input type="number" id="pp-pres-cant" min="0" step="0.01" placeholder="Total latas" oninput="calcProdBase('pp')"></div>
+        <div class="fg"><label>Quintales</label><input type="number" id="pp-eq-a" min="0" step="0.01" placeholder="Total quintales" oninput="calcProdBase('pp')"></div>
         <div class="fg"><label>Cant. Defectuosa</label><input type="number" id="pp-def" min="0" placeholder="0"></div>
         <div class="fg fgrid one"><label>Observaciones</label><input type="text" id="pp-obs" placeholder="Opcional"></div>
       </div>
@@ -905,13 +905,13 @@ body.viewer-mode .cat-add-row{display:none!important}
       <div class="fgrid">
         <div class="fg"><label>Fecha</label><input type="date" id="pa-fecha"></div>
         <div class="fg"><label>Turno</label><select id="pa-turno"><option value="">Seleccionar...</option><option>Mañana</option><option>Tarde</option><option>Noche</option></select></div>
-        <div class="fg"><label>Tipo de Pastel</label><input type="text" id="pa-tipo" list="pasteles-options" placeholder="Buscar pastel..." oninput="updateCatalogUnitSelect('pasteles',this.value,'pa-und');updateProdEquiv('pa','pasteles')" onchange="updateCatalogUnitSelect('pasteles',this.value,'pa-und');updateProdEquiv('pa','pasteles')"></div>
-        <div class="fg"><label>Presentación</label><select id="pa-und" onchange="updateProdEquiv('pa','pasteles')"><option value="">Selecciona producto...</option></select></div>
-        <div class="fg"><label>Cant. presentación</label><input type="number" id="pa-pres-cant" min="0" step="0.01" placeholder="0" oninput="calcProdBase('pa')"></div>
-        <div class="fg"><label>Unidad teórica</label><input type="text" id="pa-teo-und" list="unit-options" placeholder="bandeja/lata/caja" oninput="calcProdBase('pa')"></div>
-        <div class="fg"><label>Cant. teórica total</label><input type="number" id="pa-eq-a" min="0" step="0.01" placeholder="Total bandejas/latas/cajas" oninput="calcProdBase('pa')"></div>
-        <div class="fg"><label>Sub unidad</label><input type="text" id="pa-sub-und" list="unit-options" placeholder="unidad" oninput="calcProdBase('pa')"></div>
-        <div class="fg"><label>Cant. sub unidad total</label><input type="number" id="pa-cant" min="0" step="0.01" placeholder="Total unidades"></div>
+        <div class="fg"><label>Tipo de Pastel</label><input type="text" id="pa-tipo" list="pasteles-options" placeholder="Buscar pastel..." oninput="updateProdEquiv('pa','pasteles')" onchange="updateProdEquiv('pa','pasteles')"></div>
+        <input type="hidden" id="pa-und" value="unidad">
+        <input type="hidden" id="pa-pres-cant" value="0">
+        <input type="hidden" id="pa-teo-und" value="unidad">
+        <input type="hidden" id="pa-eq-a" value="0">
+        <input type="hidden" id="pa-sub-und" value="unidad">
+        <div class="fg"><label>Unidades</label><input type="number" id="pa-cant" min="0" step="0.01" placeholder="Total unidades" oninput="calcProdBase('pa')"></div>
         <div class="fg"><label>Cant. Defectuosa</label><input type="number" id="pa-def" min="0" placeholder="0"></div>
         <div class="fg fgrid one"><label>Observaciones</label><input type="text" id="pa-obs" placeholder="Opcional"></div>
       </div>
@@ -1479,6 +1479,7 @@ async function loadCats(){
 function renderCats(){
   const g=document.getElementById('cat-grid');
   const isViewer=document.body.classList.contains('viewer-mode');
+  const addUnitField=(key,inputId)=>key==='panes'||key==='pasteles'?'':`<input class="add-item-input" type="text" list="unit-options" id="${inputId}-unidad" placeholder="Unidad...">`;
   const sec=(key,lbl,color,inputId)=>`<div class="cat-section">
     <div class="cat-title" style="color:${color}">${lbl}</div>
     <div class="cat-items-grid">
@@ -1489,7 +1490,7 @@ function renderCats(){
         ${isViewer?'':'<button onclick="quitarCatItem(\''+key+'\','+i+')" style="border:none;background:none;color:var(--gray);cursor:pointer;font-size:.7rem;padding:0 2px;flex-shrink:0;line-height:1" title="Quitar">✕</button>'}
       </div>`).join('')}
     </div>
-    ${isViewer?'':'<div class="add-item-row cat-add-row"><input class="add-item-input" type="text" id="'+inputId+'" placeholder="Nuevo elemento..."><input class="add-item-input" type="text" list="unit-options" id="'+inputId+'-unidad" placeholder="Unidad..."><button class="add-item-btn" style="background:'+color+'" onclick="agregarCatItem(\''+key+'\',\''+inputId+'\')">+ Agregar</button></div>'}
+    ${isViewer?'':'<div class="add-item-row cat-add-row"><input class="add-item-input" type="text" id="'+inputId+'" placeholder="Nuevo elemento...">'+addUnitField(key,inputId)+'<button class="add-item-btn" style="background:'+color+'" onclick="agregarCatItem(\''+key+'\',\''+inputId+'\')">+ Agregar</button></div>'}
   </div>`;
   g.innerHTML='<datalist id="unit-options">'+UNIT_LIST.map(u=>`<option value="${escAttr(u)}"></option>`).join('')+'</datalist>'
              +sec('insumos','🌾 Insumos / Materia Prima','var(--orange)','new-insumo')
@@ -1767,7 +1768,25 @@ async function renderSalidasIns(){
 // ════════════════════════════════════════════
 // PRODUCCIÓN
 // ════════════════════════════════════════════
+function setPanFixedUnits(){
+  const und=document.getElementById('pp-und');
+  if(und)und.value='lata';
+  const teo=document.getElementById('pp-teo-und');
+  if(teo)teo.value='quintal';
+  const sub=document.getElementById('pp-sub-und');
+  if(sub)sub.value='unidades';
+}
+function setPastelFixedUnits(){
+  const und=document.getElementById('pa-und');
+  if(und)und.value='unidad';
+  const teo=document.getElementById('pa-teo-und');
+  if(teo)teo.value='unidad';
+  const sub=document.getElementById('pa-sub-und');
+  if(sub)sub.value='unidad';
+}
 function updateProdEquiv(pre,key){
+  if(pre==='pp'){setPanFixedUnits();calcProdBase(pre);return}
+  if(pre==='pa'){setPastelFixedUnits();calcProdBase(pre);return}
   const producto=v(pre+'-tipo'),unidad=v(pre+'-und');
   const teo=document.getElementById(pre+'-teo-und'),sub=document.getElementById(pre+'-sub-und');
   if(teo&&!teo.value&&document.activeElement!==teo)teo.value=pre==='pp'?'lata':'bandeja';
@@ -1779,6 +1798,16 @@ function prodFactorFromInputs(pre){
   return pres>0&&cant>0?cant/pres:1;
 }
 function calcProdBase(pre){
+  if(pre==='pp'){setPanFixedUnits();return}
+  if(pre==='pa'){
+    setPastelFixedUnits();
+    const cant=v('pa-cant')||'0';
+    const pres=document.getElementById('pa-pres-cant');
+    const teoCant=document.getElementById('pa-eq-a');
+    if(pres)pres.value=cant;
+    if(teoCant)teoCant.value=cant;
+    return;
+  }
   const teo=document.getElementById(pre+'-teo-und'),sub=document.getElementById(pre+'-sub-und');
   if(teo&&!teo.value&&document.activeElement!==teo)teo.value=pre==='pp'?'lata':'bandeja';
   if(sub&&!sub.value&&document.activeElement!==sub)sub.value='unidad';
@@ -1789,7 +1818,7 @@ function prodCantidadTeorica(rec){
 }
 function prodCantidadTexto(r){
   const pract=`${fmtQty(r.cantidadPresentacion||r.cantidad)} ${r.unidad||''}`;
-  const teor=`${fmtQty(prodCantidadTeorica(r))} ${r.unidadTeorica||'lata'}`;
+  const teor=`${fmtQty(prodCantidadTeorica(r))} ${r.unidadTeorica||(r.tipo==='pan'?'quintal':'lata')}`;
   const sub=`${fmtQty(r.cantidad)} ${r.unidadSub||r.unidadBase||getBaseUnit(r.tipo==='pastel'?'pasteles':'panes',r.producto)}`;
   return `<b>${pract}</b><div style="font-size:.68rem;color:var(--gray)">${teor} - ${sub}</div>`;
 }
@@ -1800,13 +1829,13 @@ async function guardarProd(tipo){
   const presCant=toNum(v(pre+'-pres-cant')),teoCant=toNum(v(pre+'-eq-a')),factor=prodFactorFromInputs(pre);
   if(!v(pre+'-tipo')||cant<=0){toast('⚠ Completa tipo y cantidad','var(--red)');return}
   if(def<0||def>cant){toast('⚠ Revisa cantidad defectuosa','var(--red)');return}
-  if(presCant<=0||teoCant<0){toast('⚠ Revisa cantidades de producción','var(--red)');return}
+  if(presCant<=0||teoCant<0||(tipo==='pan'&&teoCant<=0)){toast('⚠ Revisa cantidades de producción','var(--red)');return}
   const unidadBase=v(pre+'-sub-und')||getBaseUnit(key,v(pre+'-tipo'));
   const eqB=teoCant>0?cant/teoCant:0;
   const data={tipo,fecha:v(pre+'-fecha')||hoy(),turno:v(pre+'-turno'),producto:v(pre+'-tipo'),unidad:v(pre+'-und'),cantidad:cant,cantidadPresentacion:presCant,unidadTeorica:v(pre+'-teo-und')||(tipo==='pan'?'lata':'bandeja'),cantidadTeorica:teoCant,unidadSub:unidadBase,factorBase:factor,unidadBase,eqA:teoCant,eqB,defectuosa:def,neto:cant-def,obs:v(pre+'-obs')};
   const id=await dbAdd('produccion',data);await cloudAdd('produccion',id,data);
   [pre+'-turno',pre+'-tipo',pre+'-und',pre+'-pres-cant',pre+'-teo-und',pre+'-eq-a',pre+'-sub-und',pre+'-cant',pre+'-def',pre+'-obs'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
-  updateCatalogUnitSelect(key,'',pre+'-und');
+  if(tipo==='pan')setPanFixedUnits();else setPastelFixedUnits();
   toast('✅ Producción registrada');renderProd();
 }
 async function renderProd(){
@@ -2052,11 +2081,28 @@ const FIELDS={
 };
 async function openEdit(store,id){
   const rows=await dbAll(store);const rec=rows.find(r=>r.id===id);if(!rec)return;
-  editCtx={store,id,rec};const fields=FIELDS[store]||[];
+  editCtx={store,id,rec};
+  const panEditFields=[
+    {k:'fecha',l:'Fecha',t:'date'},{k:'turno',l:'Turno',t:'sel',opts:['Mañana','Tarde','Noche']},{k:'producto',l:'Producto',t:'text'},
+    {k:'cantidad',l:'Unidades',t:'num'},
+    {k:'cantidadPresentacion',l:'Latas',t:'num'},
+    {k:'eqA',l:'Quintales',t:'num'},
+    {k:'defectuosa',l:'Cant. Defectuosa',t:'num'},{k:'obs',l:'Obs.',t:'text'}
+  ];
+  const pastelEditFields=[
+    {k:'fecha',l:'Fecha',t:'date'},{k:'turno',l:'Turno',t:'sel',opts:['Mañana','Tarde','Noche']},{k:'producto',l:'Producto',t:'text'},
+    {k:'cantidad',l:'Unidades',t:'num'},
+    {k:'defectuosa',l:'Cant. Defectuosa',t:'num'},{k:'obs',l:'Obs.',t:'text'}
+  ];
+  const fields=store==='produccion'&&rec.tipo==='pan'?panEditFields:(store==='produccion'&&rec.tipo==='pastel'?pastelEditFields:(FIELDS[store]||[]));
   document.getElementById('modal-title').textContent='Editar Registro';
   document.getElementById('modal-fields').innerHTML=fields.map(f=>{
+    const fixedPanUnits=store==='produccion'&&rec.tipo==='pan';
     let inp;
-    if(f.t==='sel'||f.t==='selCat'){const list=f.k==='unidad'?unitOptionsForRecord(store,rec):(f.t==='selCat'?cats[f.cat]:f.opts);const opts=list.map(o=>`<option${o==rec[f.k]?' selected':''}>${o}</option>`).join('');inp=`<select id="ef-${f.k}"><option value="">${rec[f.k]||''}</option>${opts}</select>`;}
+    if(fixedPanUnits&&f.k==='unidad')inp=`<input type="text" id="ef-${f.k}" value="lata" readonly>`;
+    else if(fixedPanUnits&&f.k==='unidadTeorica')inp=`<input type="text" id="ef-${f.k}" value="quintal" readonly>`;
+    else if(fixedPanUnits&&f.k==='unidadSub')inp=`<input type="text" id="ef-${f.k}" value="unidades" readonly>`;
+    else if(f.t==='sel'||f.t==='selCat'){const list=f.k==='unidad'?unitOptionsForRecord(store,rec):(f.t==='selCat'?cats[f.cat]:f.opts);const opts=list.map(o=>`<option${o==rec[f.k]?' selected':''}>${o}</option>`).join('');inp=`<select id="ef-${f.k}"><option value="">${rec[f.k]||''}</option>${opts}</select>`;}
     else if(f.t==='num')inp=`<input type="number" id="ef-${f.k}" value="${rec[f.k]||0}" min="0" step="0.01">`;
     else if(f.t==='date')inp=`<input type="date" id="ef-${f.k}" value="${rec[f.k]||''}">`;
     else inp=`<input type="text" id="ef-${f.k}" value="${rec[f.k]||''}">`;
@@ -2081,6 +2127,18 @@ async function saveEdit(){
     updated.cantidadBase=(updated.cantidad||0)*updated.factorBase;
   }
   if(updated.cantidad!==undefined&&updated.defectuosa!==undefined){
+    if(store==='produccion'&&updated.tipo==='pan'){
+      updated.unidadSub='unidades';
+      updated.unidad='lata';
+      updated.unidadTeorica='quintal';
+    }
+    if(store==='produccion'&&updated.tipo==='pastel'){
+      updated.unidadSub='unidad';
+      updated.unidad='unidad';
+      updated.unidadTeorica='unidad';
+      updated.cantidadPresentacion=updated.cantidad;
+      updated.eqA=updated.cantidad;
+    }
     updated.cantidadPresentacion=updated.cantidadPresentacion||updated.cantidad;
     updated.unidadTeorica=updated.unidadTeorica||'lata';
     updated.eqA=updated.eqA||updated.cantidadTeorica||0;
@@ -2175,17 +2233,21 @@ function renderDashProduccion(prodHoy){
     panes.forEach(r=>{
       if(!panMap[r.producto])panMap[r.producto]={neto:0,pr:{},sub:{}};
       panMap[r.producto].neto+=toNum(r.neto);
-      dashAddPractical(panMap[r.producto].pr,r.cantidadPresentacion||r.cantidad,r.unidad);
-      dashAddPractical(panMap[r.producto].sub,r.cantidad,r.unidadSub||r.unidadBase||getBaseUnit('panes',r.producto));
+      dashAddPractical(panMap[r.producto].pr,r.cantidadPresentacion||0,r.unidad||'lata');
+      dashAddPractical(panMap[r.producto].sub,prodCantidadTeorica(r),r.unidadTeorica||'quintal');
     });
-    panesT.innerHTML=Object.keys(panMap).length?Object.entries(panMap).map(([p,v])=>`<tr><td>${p}</td><td>${dashProdTipoBadge('pan')}</td><td><b>${fmtQty(v.neto)}</b></td><td>${dashProdUnitText(v.pr)}</td><td>${dashProdUnitText(v.sub)}</td></tr>`).join(''):`<tr><td colspan="5" class="empty">Sin panes</td></tr>`;
+    panesT.innerHTML=Object.keys(panMap).length?Object.entries(panMap).map(([p,v])=>`<tr><td>${p}</td><td><b>${fmtQty(v.neto)}</b></td><td>${dashProdUnitText(v.pr)}</td><td>${dashProdUnitText(v.sub)}</td></tr>`).join(''):`<tr><td colspan="4" class="empty">Sin panes</td></tr>`;
     const pastelMap={};
     pasteles.forEach(r=>{if(!pastelMap[r.producto])pastelMap[r.producto]=0;pastelMap[r.producto]+=toNum(r.neto)});
-    pastelesT.innerHTML=Object.keys(pastelMap).length?Object.entries(pastelMap).map(([p,neto])=>`<tr><td>${p}</td><td>${dashProdTipoBadge('pastel')}</td><td><b>${fmtQty(neto)}</b></td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin pasteles</td></tr>`;
+    pastelesT.innerHTML=Object.keys(pastelMap).length?Object.entries(pastelMap).map(([p,neto])=>`<tr><td>${p}</td><td><b>${fmtQty(neto)}</b></td></tr>`).join(''):`<tr><td colspan="2" class="empty">Sin pasteles</td></tr>`;
     return;
   }
-  panesT.innerHTML=panes.length?panes.map(r=>`<tr><td>${r.producto}</td><td>${dashProdTipoBadge('pan')}</td><td><b>${fmtQty(r.neto)}</b></td><td>${r.unidad||'—'}</td><td>${r.unidadSub||r.unidadBase||getBaseUnit('panes',r.producto)||'—'}</td></tr>`).join(''):`<tr><td colspan="5" class="empty">Sin panes hoy</td></tr>`;
-  pastelesT.innerHTML=pasteles.length?pasteles.map(r=>`<tr><td>${r.producto}</td><td>${dashProdTipoBadge('pastel')}</td><td><b>${fmtQty(r.neto)}</b></td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin pasteles hoy</td></tr>`;
+  panesT.innerHTML=panes.length?panes.map(r=>{
+    const practica=`${fmtQty(r.cantidadPresentacion||0)} ${r.unidad||'lata'}`.trim();
+    const sub=`${fmtQty(prodCantidadTeorica(r))} ${r.unidadTeorica||'quintal'}`.trim();
+    return `<tr><td>${r.producto}</td><td><b>${fmtQty(r.neto)}</b></td><td>${practica||'—'}</td><td>${sub||'—'}</td></tr>`;
+  }).join(''):`<tr><td colspan="4" class="empty">Sin panes hoy</td></tr>`;
+  pastelesT.innerHTML=pasteles.length?pasteles.map(r=>`<tr><td>${r.producto}</td><td><b>${fmtQty(r.neto)}</b></td></tr>`).join(''):`<tr><td colspan="2" class="empty">Sin pasteles hoy</td></tr>`;
 }
 async function renderDash(){
   if(!document.getElementById('dash-fecha-input').value) document.getElementById('dash-fecha-input').value=hoy();
