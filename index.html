@@ -618,7 +618,7 @@ body.viewer-mode .cat-add-row{display:none!important}
   #app-header{left:220px}
   #main{margin-left:220px}
 
-  .stats-row{grid-template-columns:repeat(4,1fr)}
+  .stats-row{grid-template-columns:repeat(5,1fr)}
   .fgrid{grid-template-columns:repeat(3,1fr)}
   table{min-width:unset}
 
@@ -721,7 +721,6 @@ body.viewer-mode .cat-add-row{display:none!important}
     <button class="sni active" onclick="showPage('dashboard',this)"><span class="sni-ico">📊</span>Resumen del Día</button>
     <button class="sni" onclick="showPage('insumos',this)"><span class="sni-ico">📥</span>Entrada de Insumos</button>
     <button class="sni" onclick="showPage('produccion',this)"><span class="sni-ico">⚙️</span>Producción</button>
-    <button class="sni" onclick="showPage('salida',this)"><span class="sni-ico">📤</span>Salida de Productos</button>
     <button class="sni" onclick="showPage('inventario',this)"><span class="sni-ico">📦</span>Inventario</button>
     <button class="sni" onclick="showPage('catalogos',this)"><span class="sni-ico">📋</span>Catálogos</button>
   </nav>
@@ -756,8 +755,12 @@ body.viewer-mode .cat-add-row{display:none!important}
     <div class="table-wrap"><table id="dash-ins-t"><thead><tr><th>Insumo</th><th>Entradas</th><th>Salidas</th></tr></thead><tbody></tbody></table></div>
   </div>
   <div class="card">
-    <div class="card-title">⚙️ Producción <span id="dash-lbl-periodo2">Hoy</span></div>
-    <div class="table-wrap"><table id="dash-prod-t"><thead><tr><th>Producto</th><th>Tipo</th><th>Neto</th></tr></thead><tbody></tbody></table></div>
+    <div class="card-title">⚙️ Panes <span id="dash-lbl-periodo2">Hoy</span></div>
+    <div class="table-wrap"><table id="dash-prod-panes-t"><thead><tr><th>Producto</th><th>Tipo</th><th>Neto (unidades finales)</th><th>Unidad práctica</th><th>Sub unidad</th></tr></thead><tbody></tbody></table></div>
+  </div>
+  <div class="card">
+    <div class="card-title">🎂 Pasteles <span id="dash-lbl-periodo4">Hoy</span></div>
+    <div class="table-wrap"><table id="dash-prod-pasteles-t"><thead><tr><th>Producto</th><th>Tipo</th><th>Neto</th></tr></thead><tbody></tbody></table></div>
   </div>
   <div class="card">
     <div class="card-title">📤 Salidas <span id="dash-lbl-periodo3">Hoy</span></div>
@@ -923,34 +926,6 @@ body.viewer-mode .cat-add-row{display:none!important}
 </div>
 
 <!-- ── SALIDA PRODUCTOS ── -->
-<div class="page" id="page-salida">
-  <div class="page-header">
-    <div class="ptitle">📤 Salida de Productos</div>
-    <div class="psub">Productos terminados que salen de planta</div>
-  </div>
-  <div class="card form-card">
-    <div class="card-title">Nuevo Registro</div>
-    <div class="fgrid">
-      <div class="fg"><label>Fecha</label><input type="date" id="sp-fecha"></div>
-      <div class="fg"><label>Categoría</label><select id="sp-cat" onchange="fillProdSelect()"><option value="">Seleccionar...</option><option>Panes</option><option>Pasteles</option></select></div>
-      <div class="fg"><label>Producto</label><input type="text" id="sp-prod" list="salida-prod-options" placeholder="Buscar producto..." oninput="updateSalidaUnitSelect()" onchange="updateSalidaUnitSelect()"></div>
-      <div class="fg"><label>Unidad</label><select id="sp-und"><option value="">Selecciona producto...</option></select></div>
-      <div class="fg"><label>Cantidad</label><input type="number" id="sp-cant" min="0" placeholder="0"></div>
-      <div class="fg"><label>Destino / Cliente</label><select id="sp-dest"><option value="">Seleccionar...</option></select></div>
-      <div class="fg"><label>N° Boleta/Factura</label><input type="text" id="sp-doc" placeholder="001-00045"></div>
-      <div class="fg"><label>Encargado / Chofer</label><select id="sp-encargado"><option value="">Seleccionar...</option></select></div>
-      <div class="fg"><label>Observaciones</label><input type="text" id="sp-obs" placeholder="Opcional"></div>
-    </div>
-    <button class="btn bb btn-full" onclick="guardarSalidaProd()">➕ Guardar Salida</button>
-  </div>
-  <div class="card">
-    <div class="card-title" style="justify-content:space-between"><span>Registros de Salidas</span>
-      <div style="display:flex;gap:4px"><button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('sp-filtro',-1,renderSalidaProd)" title="Día anterior">◀</button><input type="date" id="sp-filtro" onchange="renderSalidaProd()" style="padding:6px 8px;border:1.5px solid var(--cream3);border-radius:8px;font-size:.78rem;background:var(--cream);outline:none;color:var(--brown)"><button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('sp-filtro',1,renderSalidaProd)" title="Día siguiente">▶</button><button class="btn bp bsm" onclick="irHoyFiltro('sp-filtro',renderSalidaProd)">Hoy</button></div>
-    </div>
-    <div class="table-wrap"><table id="sp-table"><thead><tr><th>#</th><th>Fecha</th><th>Cat.</th><th>Producto</th><th>Und.</th><th>Cant.</th><th>Destino</th><th>Encargado</th><th>N°Doc</th><th>Obs.</th><th>✏️</th><th>🗑</th></tr></thead><tbody></tbody></table></div>
-  </div>
-</div>
-
 <!-- ── INVENTARIO ── -->
 <div class="page" id="page-inventario">
   <div class="page-header">
@@ -1045,9 +1020,6 @@ body.viewer-mode .cat-add-row{display:none!important}
   </button>
   <button class="nav-item" id="bnav-produccion" onclick="showPage('produccion',this)">
     <span class="nav-ico">⚙️</span><span class="nav-lbl">Producción</span>
-  </button>
-  <button class="nav-item" id="bnav-salida" onclick="showPage('salida',this)">
-    <span class="nav-ico">📤</span><span class="nav-lbl">Salida</span>
   </button>
   <button class="nav-item" id="bnav-inventario" onclick="showPage('inventario',this)">
     <span class="nav-ico">📦</span><span class="nav-lbl">Stock</span>
@@ -1152,7 +1124,6 @@ function refreshPage(){
   if(active==='dashboard')renderDash();
   else if(active==='insumos'){renderEntradas();renderSalidasIns();}
   else if(active==='produccion')renderProd();
-  else if(active==='salida')renderSalidaProd();
   else if(active==='inventario')renderInv();
 }
 function setupRealtimeListeners(){
@@ -1485,7 +1456,6 @@ function showPage(id,el){
   if(id==='inventario')renderInv();
   if(id==='insumos'){renderEntradas();renderSalidasIns()}
   if(id==='produccion')renderProd();
-  if(id==='salida')renderSalidaProd();
 }
 function switchTab(pre,tab,el){
   const pg=el.closest('.page');
@@ -2168,6 +2138,35 @@ function dashProdHtml(v,color='var(--green)'){
   const sub=dashPracticalText(v.sub)||`${fmtQty(v.neto??v.cant??0)} ${v.unit||'unidad'}`;
   return `<b style="color:${color}">${practical||sub}</b><div style="font-size:.68rem;color:var(--gray)">${[teor,sub].filter(Boolean).join(' - ')}</div>`;
 }
+function dashProdTipoBadge(tipo){
+  return `<span class="badge ${tipo==='pan'?'bpan':'bpast'}">${tipo==='pan'?'Pan':'Pastel'}</span>`;
+}
+function dashProdUnitText(map,fallback='—'){
+  const txt=dashPracticalText(map);
+  return txt||fallback;
+}
+function renderDashProduccion(prodHoy){
+  const panesT=document.querySelector('#dash-prod-panes-t tbody');
+  const pastelesT=document.querySelector('#dash-prod-pasteles-t tbody');
+  const panes=prodHoy.filter(r=>r.tipo==='pan');
+  const pasteles=prodHoy.filter(r=>r.tipo==='pastel');
+  if(_dashPeriodo!=='dia'){
+    const panMap={};
+    panes.forEach(r=>{
+      if(!panMap[r.producto])panMap[r.producto]={neto:0,pr:{},sub:{}};
+      panMap[r.producto].neto+=toNum(r.neto);
+      dashAddPractical(panMap[r.producto].pr,r.cantidadPresentacion||r.cantidad,r.unidad);
+      dashAddPractical(panMap[r.producto].sub,r.cantidad,r.unidadSub||r.unidadBase||getBaseUnit('panes',r.producto));
+    });
+    panesT.innerHTML=Object.keys(panMap).length?Object.entries(panMap).map(([p,v])=>`<tr><td>${p}</td><td>${dashProdTipoBadge('pan')}</td><td><b>${fmtQty(v.neto)}</b></td><td>${dashProdUnitText(v.pr)}</td><td>${dashProdUnitText(v.sub)}</td></tr>`).join(''):`<tr><td colspan="5" class="empty">Sin panes</td></tr>`;
+    const pastelMap={};
+    pasteles.forEach(r=>{if(!pastelMap[r.producto])pastelMap[r.producto]=0;pastelMap[r.producto]+=toNum(r.neto)});
+    pastelesT.innerHTML=Object.keys(pastelMap).length?Object.entries(pastelMap).map(([p,neto])=>`<tr><td>${p}</td><td>${dashProdTipoBadge('pastel')}</td><td><b>${fmtQty(neto)}</b></td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin pasteles</td></tr>`;
+    return;
+  }
+  panesT.innerHTML=panes.length?panes.map(r=>`<tr><td>${r.producto}</td><td>${dashProdTipoBadge('pan')}</td><td><b>${fmtQty(r.neto)}</b></td><td>${r.unidad||'—'}</td><td>${r.unidadSub||r.unidadBase||getBaseUnit('panes',r.producto)||'—'}</td></tr>`).join(''):`<tr><td colspan="5" class="empty">Sin panes hoy</td></tr>`;
+  pastelesT.innerHTML=pasteles.length?pasteles.map(r=>`<tr><td>${r.producto}</td><td>${dashProdTipoBadge('pastel')}</td><td><b>${fmtQty(r.neto)}</b></td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin pasteles hoy</td></tr>`;
+}
 async function renderDash(){
   if(!document.getElementById('dash-fecha-input').value) document.getElementById('dash-fecha-input').value=hoy();
   const{desde,hasta,lbl}=_dashRango();
@@ -2179,25 +2178,24 @@ async function renderDash(){
   const periodoNombre=_dashPeriodo==='dia'?'Resumen del Día':_dashPeriodo==='semana'?'Resumen Semanal':'Resumen Mensual';
   document.getElementById('dash-ptitle').textContent='📊 '+periodoNombre;
   document.getElementById('dash-fecha').textContent=lbl.charAt(0).toUpperCase()+lbl.slice(1);
-  ['dash-lbl-periodo','dash-lbl-periodo2','dash-lbl-periodo3'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=_dashPeriodo==='dia'?'Hoy':_dashPeriodo==='semana'?'Esta Semana':'Este Mes'});
+  ['dash-lbl-periodo','dash-lbl-periodo2','dash-lbl-periodo3','dash-lbl-periodo4'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=_dashPeriodo==='dia'?'Hoy':_dashPeriodo==='semana'?'Esta Semana':'Este Mes'});
   document.getElementById('sgrid').innerHTML=`
     <div class="scard"><div class="slbl">Insumos Ingresados</div><div class="sval">${entHoy.reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0)}</div><div class="ssub">${entHoy.length} línea(s)</div></div>
     <div class="scard gd"><div class="slbl">Insumos Usados</div><div class="sval">${salIHoy.reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0)}</div><div class="ssub">${salIHoy.length} línea(s)</div></div>
-    <div class="scard g"><div class="slbl">Producción Neta</div><div class="sval">${prodHoy.reduce((s,r)=>s+r.neto,0)}</div><div class="ssub">${prodHoy.length} lote(s)</div></div>
+    <div class="scard g"><div class="slbl">Panes Netos</div><div class="sval">${fmtQty(prodHoy.filter(r=>r.tipo==='pan').reduce((s,r)=>s+toNum(r.neto),0))}</div><div class="ssub">${prodHoy.filter(r=>r.tipo==='pan').length} lote(s)</div></div>
+    <div class="scard gd"><div class="slbl">Pasteles Netos</div><div class="sval">${fmtQty(prodHoy.filter(r=>r.tipo==='pastel').reduce((s,r)=>s+toNum(r.neto),0))}</div><div class="ssub">${prodHoy.filter(r=>r.tipo==='pastel').length} lote(s)</div></div>
     <div class="scard b"><div class="slbl">Salidas Productos</div><div class="sval">${spHoy.reduce((s,r)=>s+prodOutBaseQty(r),0)}</div><div class="ssub">${spHoy.length} despacho(s)</div></div>`;
   const insMap={};
   entHoy.forEach(r=>{if(!insMap[r.insumo])insMap[r.insumo]={e:0,s:0,eu:getBaseUnit('insumos',r.insumo),ep:{},sp:{}};insMap[r.insumo].e+=baseQtyForRecord(r,'insumos','insumo');insMap[r.insumo].eu=r.unidadBase||insMap[r.insumo].eu;dashAddPractical(insMap[r.insumo].ep,r.cantidad,r.unidad)});
   salIHoy.forEach(r=>{if(!insMap[r.insumo])insMap[r.insumo]={e:0,s:0,eu:getBaseUnit('insumos',r.insumo),ep:{},sp:{}};insMap[r.insumo].s+=baseQtyForRecord(r,'insumos','insumo');insMap[r.insumo].eu=r.unidadBase||insMap[r.insumo].eu;dashAddPractical(insMap[r.insumo].sp,r.cantidad,r.unidad)});
   const t1=document.querySelector('#dash-ins-t tbody');const insKeys=Object.keys(insMap);
   t1.innerHTML=insKeys.length?insKeys.map(n=>`<tr><td><b>${n}</b></td><td>${dashQtyHtml(insMap[n].ep,insMap[n].e,insMap[n].eu,'var(--green)')}</td><td>${dashQtyHtml(insMap[n].sp,insMap[n].s,insMap[n].eu,'var(--red)')}</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin movimientos</td></tr>`;
+  renderDashProduccion(prodHoy);
   // Producción agrupada por producto en semana/mes
   if(_dashPeriodo!=='dia'){
-    const prodMap={};prodHoy.forEach(r=>{if(!prodMap[r.producto])prodMap[r.producto]={tipo:r.tipo,neto:0,unit:r.unidadSub||r.unidadBase||getBaseUnit(r.tipo==='pastel'?'pasteles':'panes',r.producto),pr:{},teo:{},sub:{}};prodMap[r.producto].neto+=r.neto;dashAddPractical(prodMap[r.producto].pr,r.cantidadPresentacion||r.cantidad,r.unidad);dashAddPractical(prodMap[r.producto].teo,prodCantidadTeorica(r),r.unidadTeorica||'lata');dashAddPractical(prodMap[r.producto].sub,r.cantidad,r.unidadSub||r.unidadBase)});
-    document.querySelector('#dash-prod-t tbody').innerHTML=Object.keys(prodMap).length?Object.entries(prodMap).map(([p,v])=>`<tr><td>${p}</td><td><span class="badge ${v.tipo==='pan'?'bpan':'bpast'}">${v.tipo==='pan'?'Pan':'Pastel'}</span></td><td>${dashProdHtml(v,'var(--green)')}</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin producción</td></tr>`;
     const salMap={};spHoy.forEach(r=>{if(!salMap[r.producto])salMap[r.producto]={cant:0,unit:r.unidadBase||getBaseUnit(r.categoria==='Pasteles'?'pasteles':'panes',r.producto),pr:{}};salMap[r.producto].cant+=prodOutBaseQty(r);dashAddPractical(salMap[r.producto].pr,r.cantidad,r.unidad)});
     document.querySelector('#dash-sal-t tbody').innerHTML=Object.keys(salMap).length?Object.entries(salMap).map(([p,v])=>`<tr><td>${p}</td><td>${dashQtyHtml(v.pr,v.cant,v.unit,'var(--red)')}</td><td>—</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin salidas</td></tr>`;
   }else{
-    document.querySelector('#dash-prod-t tbody').innerHTML=prodHoy.length?prodHoy.map(r=>`<tr><td>${r.producto}</td><td><span class="badge ${r.tipo==='pan'?'bpan':'bpast'}">${r.tipo==='pan'?'Pan':'Pastel'}</span></td><td>${prodCantidadTexto(r)}</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin producción hoy</td></tr>`;
     document.querySelector('#dash-sal-t tbody').innerHTML=spHoy.length?spHoy.map(r=>`<tr><td>${r.producto}</td><td>${dashQtyHtml(Object.fromEntries([[r.unidad||'unidad',r.cantidad]]),prodOutBaseQty(r),r.unidadBase||getBaseUnit(r.categoria==='Pasteles'?'pasteles':'panes',r.producto),'var(--red)')}</td><td>${r.destino||'—'}</td></tr>`).join(''):`<tr><td colspan="3" class="empty">Sin salidas hoy</td></tr>`;
   }
   const getInvL=key=>{const r=invR.find(r=>r.key===key);return r||{si:0,aj:0,min:0}};
@@ -2245,7 +2243,7 @@ async function importarDatos(input){
     }
     if(backup.catalogos?.length){const catRows=await dbAll('catalogos');if(!catRows.length){const{id,...catData}=backup.catalogos[backup.catalogos.length-1];await dbAdd('catalogos',catData);await loadCats();}}
     status.style.color='var(--green)';status.textContent=`✅ ${total} registro(s) importados`;
-    renderDash();renderEntradas();renderSalidasIns();renderProd();renderSalidaProd();
+    renderDash();renderEntradas();renderSalidasIns();renderProd();
   }catch(e){status.style.color='var(--red)';status.textContent='❌ Error: '+e.message}
   input.value='';
 }
@@ -2256,7 +2254,7 @@ async function importarDatos(input){
 async function init(){
   await openDB();await loadCats();
   setHoy('ent-fecha','sal-ins-fecha','pp-fecha','pa-fecha','sp-fecha');
-  renderDash();renderEntradas();renderSalidasIns();renderProd();renderSalidaProd();
+  renderDash();renderEntradas();renderSalidasIns();renderProd();
   const dateStr=new Date().toLocaleDateString('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'short',year:'numeric'});
   const sdDate=document.getElementById('sd-date');if(sdDate)sdDate.textContent=dateStr;
   addLineaEntrada();addLineaSalidaIns();
