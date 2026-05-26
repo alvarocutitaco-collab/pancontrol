@@ -262,6 +262,33 @@ input,select,textarea{font-family:'DM Sans',sans-serif}
 .bsec{background:var(--cream2);color:var(--brown)}
 .bsm{padding:7px 12px;font-size:.78rem}
 .btn-full{width:100%;justify-content:center}
+.ocr-panel{
+  border:1.5px solid var(--cream3);
+  background:var(--cream);
+  border-radius:var(--r3);
+  padding:12px;
+  margin-bottom:14px;
+}
+.ocr-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.ocr-file{
+  width:100%;padding:10px 12px;border:2px dashed var(--cream3);
+  border-radius:var(--r3);background:#fff;color:var(--brown);
+  font-size:.86rem;
+}
+.ocr-file-hidden{display:none}
+.ocr-selected{
+  margin-top:8px;padding:8px 10px;border-radius:var(--r3);
+  background:#fff;border:1.5px solid var(--cream3);
+  color:var(--gray);font-size:.78rem;
+}
+.ocr-status{
+  display:none;margin-top:10px;padding:9px 10px;border-radius:var(--r3);
+  background:#fff;color:var(--gray);font-size:.78rem;line-height:1.35;
+}
+.ocr-status.show{display:block}
+.ocr-status.ok{color:var(--green);border:1px solid rgba(45,106,79,.25)}
+.ocr-status.warn{color:var(--gold);border:1px solid rgba(200,146,10,.28)}
+.ocr-status.err{color:var(--red);border:1px solid rgba(155,35,53,.24)}
 
 /* ════════════════════════════════════════════
    STAT CARDS (DASHBOARD)
@@ -794,6 +821,27 @@ body.viewer-mode .cat-add-row{display:none!important}
   <div class="tc active" id="ins-tab-entrada">
     <div class="card form-card">
       <div class="card-title">Nuevo Ingreso</div>
+      <div class="ocr-panel">
+        <div class="fg">
+          <label>Factura o boleta con OCR + IA</label>
+          <input class="ocr-file-hidden" type="file" id="ocr-doc-file-camera" accept="image/*" capture="environment" onchange="setOCRFileSource('ocr-doc-file-camera')">
+          <input class="ocr-file-hidden" type="file" id="ocr-doc-file-gallery" accept="image/*" onchange="setOCRFileSource('ocr-doc-file-gallery')">
+          <div class="ocr-actions" style="margin-top:0">
+            <button class="btn bsec bsm" onclick="seleccionarOCR('camera')">Tomar foto</button>
+            <button class="btn bsec bsm" onclick="seleccionarOCR('gallery')">Cargar galeria</button>
+          </div>
+          <div id="ocr-file-name" class="ocr-selected">Ningun archivo seleccionado</div>
+        </div>
+        <div class="fg" style="margin-top:10px">
+          <label>URL servicio OCR + IA</label>
+          <input type="text" id="ocr-api-url" placeholder="/api/ocr-factura" value="/api/ocr-factura">
+        </div>
+        <div class="ocr-actions">
+          <button class="btn bb bsm" onclick="analizarDocumentoEntrada()">Analizar documento</button>
+          <button class="btn bsec bsm" onclick="limpiarOCR()">Limpiar OCR</button>
+        </div>
+        <div id="ocr-status" class="ocr-status"></div>
+      </div>
       <div class="fgrid">
         <div class="fg"><label>Fecha</label><input type="date" id="ent-fecha"></div>
         <div class="fg"><label>Tipo Doc.</label>
@@ -801,7 +849,7 @@ body.viewer-mode .cat-add-row{display:none!important}
         </div>
         <div class="fg"><label>N° Documento</label><input type="text" id="ent-numdoc" placeholder="001-00123"></div>
         <div class="fg"><label>Proveedor</label><input type="text" id="ent-prov" placeholder="Nombre"></div>
-        <div class="fg"><label>Total Documento</label><input type="number" id="ent-total-doc" min="0" step="0.01" placeholder="0.00" readonly></div>
+        <div class="fg"><label>Total Documento</label><input type="number" id="ent-total-doc" min="0" step="0.01" placeholder="0.00"></div>
       </div>
       <div style="font-size:.75rem;font-weight:700;color:var(--brown2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">Líneas de Insumos:</div>
       <div id="lineas-entrada"></div>
@@ -1706,6 +1754,146 @@ function insumoCantidadTexto(r){
 // ════════════════════════════════════════════
 // ENTRADAS DE INSUMOS
 // ════════════════════════════════════════════
+// OCR + IA para precargar entradas desde facturas o boletas.
+let ocrFileInputActivo='';
+function initOCRConfig(){
+  const el=document.getElementById('ocr-api-url');
+  if(!el)return;
+  el.value=localStorage.getItem('pancontrol_ocr_api_url')||el.value||'/api/ocr-factura';
+  el.addEventListener('change',()=>localStorage.setItem('pancontrol_ocr_api_url',el.value.trim()||'/api/ocr-factura'));
+}
+function seleccionarOCR(source){
+  const id=source==='gallery'?'ocr-doc-file-gallery':'ocr-doc-file-camera';
+  document.getElementById(id)?.click();
+}
+function setOCRFileSource(id){
+  ocrFileInputActivo=id;
+  const file=document.getElementById(id)?.files?.[0];
+  const label=document.getElementById('ocr-file-name');
+  if(label)label.textContent=file?file.name:'Ningun archivo seleccionado';
+}
+function getOCRFile(){
+  const active=document.getElementById(ocrFileInputActivo)?.files?.[0];
+  return active||document.getElementById('ocr-doc-file-gallery')?.files?.[0]||document.getElementById('ocr-doc-file-camera')?.files?.[0]||null;
+}
+function setOCRStatus(msg,type='warn'){
+  const el=document.getElementById('ocr-status');
+  if(!el)return;
+  el.className=`ocr-status show ${type}`;
+  el.textContent=msg;
+}
+function limpiarOCR(){
+  const camera=document.getElementById('ocr-doc-file-camera');
+  const gallery=document.getElementById('ocr-doc-file-gallery');
+  const label=document.getElementById('ocr-file-name');
+  const status=document.getElementById('ocr-status');
+  if(camera)camera.value='';
+  if(gallery)gallery.value='';
+  if(label)label.textContent='Ningun archivo seleccionado';
+  ocrFileInputActivo='';
+  if(status){status.className='ocr-status';status.textContent=''}
+}
+function normTxt(value){
+  return String(value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+}
+function mejorInsumoOCR(nombre){
+  const q=normTxt(nombre);
+  if(!q)return {value:'',score:0};
+  let best={value:nombre,score:0};
+  (cats.insumos||[]).forEach(ins=>{
+    const n=normTxt(ins);
+    let score=0;
+    if(n===q)score=100;
+    else if(n.includes(q)||q.includes(n))score=80;
+    else{
+      const qt=q.split(' ').filter(w=>w.length>2);
+      const nt=new Set(n.split(' ').filter(w=>w.length>2));
+      score=qt.length?Math.round((qt.filter(w=>nt.has(w)).length/qt.length)*70):0;
+    }
+    if(score>best.score)best={value:ins,score};
+  });
+  return best.score>=45?best:{value:nombre,score:0};
+}
+function ensureSelectOption(select,value){
+  if(!select||!value)return;
+  const exists=Array.from(select.options).some(o=>o.value===value);
+  if(!exists)select.insertAdjacentHTML('beforeend',`<option value="${escAttr(value)}">${escHtml(value)}</option>`);
+}
+function mejorUnidadOCR(insumo,unidad){
+  const q=normTxt(unidad);
+  const opts=getCatalogUnits('insumos',insumo)||[];
+  if(!q)return opts[0]||unidad||'';
+  const found=opts.find(u=>normTxt(u)===q||normTxt(u).includes(q)||q.includes(normTxt(u)));
+  return found||unidad;
+}
+function setRowOCR(row,item){
+  const match=mejorInsumoOCR(item.insumo||item.descripcion||item.nombre||'');
+  const ins=match.value||'';
+  const unidad=mejorUnidadOCR(ins,item.presentacion||item.unidad||'');
+  const cantidad=Number(item.cantidad||item.qty||0);
+  const precioUnit=Number(item.precio_unitario||item.precio||item.pu||0);
+  const totalRaw=Number(item.precio_total||item.total||item.importe||0);
+  const total=totalRaw>0?totalRaw:(precioUnit>0&&cantidad>0?precioUnit*cantidad:0);
+  row.querySelector('.li').value=ins;
+  updateInsumoLineUnit(row.querySelector('.li'));
+  ensureSelectOption(row.querySelector('.lu'),unidad);
+  row.querySelector('.lu').value=unidad;
+  row.querySelector('.lc').value=cantidad>0?cantidad:'';
+  const pack=row.querySelector('.lpack');if(pack)pack.value=Number(item.trae||item.packInterno||0)>0?Number(item.trae||item.packInterno):'1';
+  const inner=row.querySelector('.linner');if(inner)inner.value=item.unidad_interna||item.unidadInterna||unidad||'unidad';
+  const content=row.querySelector('.lcont');if(content)content.value=Number(item.contenido_cu||item.contenidoInterno||0)>0?Number(item.contenido_cu||item.contenidoInterno):'1';
+  const base=row.querySelector('.lbu');if(base)base.value=item.unidad_base||item.unidadBase||getBaseUnit('insumos',ins);
+  const price=row.querySelector('.lpt');if(price)price.value=total>0?total:'';
+  const obs=row.querySelector('.lo');
+  if(obs){
+    const notes=[];
+    if(match.score<45)notes.push('Revisar insumo detectado por OCR');
+    if(Number(item.confianza||1)<.75)notes.push('Baja confianza OCR');
+    if(item.observacion)notes.push(item.observacion);
+    if(item.descripcion_original&&item.descripcion_original!==ins)notes.push(`Original: ${item.descripcion_original}`);
+    obs.value=notes.join(' | ');
+  }
+  updateInsumoEquiv(row);
+}
+function aplicarOCRAEntrada(data){
+  const doc=data.documento||data;
+  const items=data.insumos||doc.insumos||doc.items||doc.lineas||doc.detalle||[];
+  if(doc.fecha)document.getElementById('ent-fecha').value=String(doc.fecha).slice(0,10);
+  if(doc.tipo_documento||doc.tipo_doc||doc.tipodoc)document.getElementById('ent-tipodoc').value=doc.tipo_documento||doc.tipo_doc||doc.tipodoc;
+  if(doc.numero_documento||doc.numdoc)document.getElementById('ent-numdoc').value=doc.numero_documento||doc.numdoc;
+  if(doc.proveedor)document.getElementById('ent-prov').value=doc.proveedor;
+  document.getElementById('lineas-entrada').innerHTML='';lineaEntCnt=0;
+  items.forEach(item=>{
+    addLineaEntrada();
+    setRowOCR(document.querySelector('#lineas-entrada .row-ins:last-child'),item);
+  });
+  const total=Number(doc.total||doc.total_documento||0);
+  if(total>0)document.getElementById('ent-total-doc').value=fmtQty(total);
+  updateEntradaDocTotal();
+  if(total>0)document.getElementById('ent-total-doc').value=fmtQty(total);
+  const pendientes=Array.from(document.querySelectorAll('#lineas-entrada .lo')).filter(x=>x.value).length;
+  const warns=Array.isArray(doc.advertencias)?doc.advertencias.filter(Boolean):[];
+  setOCRStatus(`Documento cargado: ${items.length} linea(s). ${pendientes?pendientes+' insumo(s) necesitan revision.':'Revisa y corrige antes de guardar.'}${warns.length?' '+warns.join(' '):''}`,'ok');
+}
+async function analizarDocumentoEntrada(){
+  const file=getOCRFile();
+  const url=(document.getElementById('ocr-api-url')?.value||'').trim();
+  if(!file){setOCRStatus('Selecciona o toma una foto de la factura o boleta.','err');return}
+  if(!url){setOCRStatus('Configura la URL del servicio OCR + IA.','err');return}
+  localStorage.setItem('pancontrol_ocr_api_url',url);
+  const form=new FormData();
+  form.append('documento',file);
+  form.append('catalogo_insumos',JSON.stringify(cats.insumos||[]));
+  form.append('unidades',JSON.stringify(cats.unidades?.insumos||{}));
+  setOCRStatus('Analizando documento...','warn');
+  try{
+    const res=await fetch(url,{method:'POST',body:form});
+    if(!res.ok)throw new Error(`Servicio OCR respondio ${res.status}`);
+    aplicarOCRAEntrada(await res.json());
+  }catch(e){
+    setOCRStatus(`No se pudo analizar. Revisa que el backend OCR + IA este activo: ${e.message}`,'err');
+  }
+}
 async function guardarEntrada(){
   const fecha=v('ent-fecha')||hoy(),tipodoc=v('ent-tipodoc'),numdoc=v('ent-numdoc'),prov=v('ent-prov');
   const lineas=leerLineas('lineas-entrada').filter(l=>l.insumo&&l.cantidad>0);
@@ -2350,6 +2538,7 @@ async function importarDatos(input){
 async function init(){
   await openDB();await loadCats();
   setHoy('ent-fecha','sal-ins-fecha','pp-fecha','pa-fecha','sp-fecha');
+  initOCRConfig();
   renderDash();renderEntradas();renderSalidasIns();renderProd();
   const dateStr=new Date().toLocaleDateString('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'short',year:'numeric'});
   const sdDate=document.getElementById('sd-date');if(sdDate)sdDate.textContent=dateStr;

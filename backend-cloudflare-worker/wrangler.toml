@@ -1,0 +1,6 @@
+name = "pancontrol-ocr-ia"
+main = "worker.js"
+compatibility_date = "2026-05-26"
+
+[vars]
+OPENAI_MODEL = "gpt-4.1-mini"
