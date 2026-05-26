@@ -1776,6 +1776,40 @@ function getOCRFile(){
   const active=document.getElementById(ocrFileInputActivo)?.files?.[0];
   return active||document.getElementById('ocr-doc-file-gallery')?.files?.[0]||document.getElementById('ocr-doc-file-camera')?.files?.[0]||null;
 }
+function isGalleryFile(){
+  return ocrFileInputActivo==='ocr-doc-file-gallery';
+}
+function canvasToBlob(canvas,type='image/jpeg',quality=.86){
+  return new Promise(resolve=>canvas.toBlob(resolve,type,quality));
+}
+async function prepararImagenOCR(file){
+  if(!file)return null;
+  const isImage=(file.type||'').startsWith('image/');
+  if(!isImage)return file;
+  if(file.type==='image/heic'||file.type==='image/heif'){
+    throw new Error('La imagen de galeria esta en formato HEIC/HEIF. Abrela en el celular y compartela/guardala como JPG, o toma una foto desde la camara de la app.');
+  }
+  if(!isGalleryFile()&&file.size<1600000)return file;
+  const url=URL.createObjectURL(file);
+  try{
+    const img=new Image();
+    img.decoding='async';
+    img.src=url;
+    await img.decode();
+    const maxSide=1800;
+    const scale=Math.min(1,maxSide/Math.max(img.naturalWidth,img.naturalHeight));
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));
+    canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    const blob=await canvasToBlob(canvas,'image/jpeg',.86);
+    if(!blob)return file;
+    return new File([blob],(file.name||'factura').replace(/\.[^.]+$/, '')+'.jpg',{type:'image/jpeg'});
+  }finally{
+    URL.revokeObjectURL(url);
+  }
+}
 function setOCRStatus(msg,type='warn'){
   const el=document.getElementById('ocr-status');
   if(!el)return;
@@ -1876,20 +1910,23 @@ function aplicarOCRAEntrada(data){
   setOCRStatus(`Documento cargado: ${items.length} linea(s). ${pendientes?pendientes+' insumo(s) necesitan revision.':'Revisa y corrige antes de guardar.'}${warns.length?' '+warns.join(' '):''}`,'ok');
 }
 async function analizarDocumentoEntrada(){
-  const file=getOCRFile();
+  const selectedFile=getOCRFile();
   const url=(document.getElementById('ocr-api-url')?.value||'').trim();
-  if(!file){setOCRStatus('Selecciona o toma una foto de la factura o boleta.','err');return}
+  if(!selectedFile){setOCRStatus('Selecciona o toma una foto de la factura o boleta.','err');return}
   if(!url){setOCRStatus('Configura la URL del servicio OCR + IA.','err');return}
   localStorage.setItem('pancontrol_ocr_api_url',url);
-  const form=new FormData();
-  form.append('documento',file);
-  form.append('catalogo_insumos',JSON.stringify(cats.insumos||[]));
-  form.append('unidades',JSON.stringify(cats.unidades?.insumos||{}));
-  setOCRStatus('Analizando documento...','warn');
   try{
+    setOCRStatus(isGalleryFile()?'Preparando imagen de galeria...':'Analizando documento...','warn');
+    const file=await prepararImagenOCR(selectedFile);
+    const form=new FormData();
+    form.append('documento',file);
+    form.append('catalogo_insumos',JSON.stringify(cats.insumos||[]));
+    form.append('unidades',JSON.stringify(cats.unidades?.insumos||{}));
+    setOCRStatus('Analizando documento...','warn');
     const res=await fetch(url,{method:'POST',body:form});
-    if(!res.ok)throw new Error(`Servicio OCR respondio ${res.status}`);
-    aplicarOCRAEntrada(await res.json());
+    const data=await res.json().catch(()=>null);
+    if(!res.ok)throw new Error(data?.error||data?.detalle||`Servicio OCR respondio ${res.status}`);
+    aplicarOCRAEntrada(data);
   }catch(e){
     setOCRStatus(`No se pudo analizar. Revisa que el backend OCR + IA este activo: ${e.message}`,'err');
   }

@@ -83,8 +83,11 @@ export default {
       }
 
       const mime = file.type || "image/jpeg";
+      if (mime === "image/heic" || mime === "image/heif") {
+        return json({ error: "Formato HEIC/HEIF no compatible. Convierte la foto a JPG o toma una foto desde la camara de la app." }, 415);
+      }
       if (!mime.startsWith("image/")) {
-        return json({ error: "Por ahora sube una foto o imagen. PDF se puede agregar despues." }, 400);
+        return json({ error: "Por ahora sube una foto en JPG, PNG o WEBP. PDF se puede agregar despues." }, 415);
       }
 
       const base64 = await fileToBase64(file);
