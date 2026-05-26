@@ -834,7 +834,7 @@ body.viewer-mode .cat-add-row{display:none!important}
         </div>
         <div class="fg" style="margin-top:10px">
           <label>URL servicio OCR + IA</label>
-          <input type="text" id="ocr-api-url" placeholder="/api/ocr-factura" value="/api/ocr-factura">
+          <input type="text" id="ocr-api-url" placeholder="https://pancontrol-ocr-ia.alvarocutitaco.workers.dev" value="https://pancontrol-ocr-ia.alvarocutitaco.workers.dev">
         </div>
         <div class="ocr-actions">
           <button class="btn bb bsm" onclick="analizarDocumentoEntrada()">Analizar documento</button>
@@ -1756,11 +1756,14 @@ function insumoCantidadTexto(r){
 // ════════════════════════════════════════════
 // OCR + IA para precargar entradas desde facturas o boletas.
 let ocrFileInputActivo='';
+const OCR_API_DEFAULT='https://pancontrol-ocr-ia.alvarocutitaco.workers.dev';
 function initOCRConfig(){
   const el=document.getElementById('ocr-api-url');
   if(!el)return;
-  el.value=localStorage.getItem('pancontrol_ocr_api_url')||el.value||'/api/ocr-factura';
-  el.addEventListener('change',()=>localStorage.setItem('pancontrol_ocr_api_url',el.value.trim()||'/api/ocr-factura'));
+  const saved=localStorage.getItem('pancontrol_ocr_api_url');
+  el.value=(!saved||saved==='/api/ocr-factura')?OCR_API_DEFAULT:saved;
+  localStorage.setItem('pancontrol_ocr_api_url',el.value);
+  el.addEventListener('change',()=>localStorage.setItem('pancontrol_ocr_api_url',el.value.trim()||OCR_API_DEFAULT));
 }
 function seleccionarOCR(source){
   const id=source==='gallery'?'ocr-doc-file-gallery':'ocr-doc-file-camera';
