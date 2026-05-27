@@ -867,7 +867,7 @@ body.viewer-mode .cat-add-row{display:none!important}
         </div>
       </div>
       <div class="table-wrap"><table id="ent-table">
-        <thead><tr><th>#</th><th>Fecha</th><th>Doc.</th><th>N°Doc</th><th>Insumo</th><th>Unidad</th><th>Cant.</th><th>P. Unit.</th><th>Total Producto</th><th>Total Doc.</th><th>Proveedor</th><th>Obs.</th><th>✏️</th><th>🗑</th></tr></thead>
+        <thead><tr><th>#</th><th>Fecha</th><th>Doc.</th><th>N°Doc</th><th>Insumo</th><th>Cant.</th><th>P. Unit.</th><th>Total Producto</th><th>Total Doc.</th><th>Proveedor</th><th>Obs.</th><th>✏️</th><th>🗑</th></tr></thead>
         <tbody></tbody>
       </table></div>
     </div>
@@ -901,7 +901,7 @@ body.viewer-mode .cat-add-row{display:none!important}
         </div>
       </div>
       <div class="table-wrap"><table id="sal-ins-table">
-        <thead><tr><th>#</th><th>Fecha</th><th>Motivo</th><th>Ticket</th><th>Insumo</th><th>Unidad</th><th>Cant.</th><th>Obs.</th><th>✏️</th><th>🗑</th></tr></thead>
+        <thead><tr><th>#</th><th>Fecha</th><th>Motivo</th><th>Ticket</th><th>Insumo</th><th>Cant.</th><th>Obs.</th><th>✏️</th><th>🗑</th></tr></thead>
         <tbody></tbody>
       </table></div>
     </div>
@@ -942,7 +942,7 @@ body.viewer-mode .cat-add-row{display:none!important}
       <div class="card-title" style="justify-content:space-between"><span>Registros de Panes</span>
         <div style="display:flex;gap:4px"><button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('pp-filtro',-1,renderProd)" title="Día anterior">◀</button><input type="date" id="pp-filtro" onchange="renderProd()" style="padding:6px 8px;border:1.5px solid var(--cream3);border-radius:8px;font-size:.78rem;background:var(--cream);outline:none;color:var(--brown)"><button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('pp-filtro',1,renderProd)" title="Día siguiente">▶</button><button class="btn bp bsm" onclick="irHoyFiltro('pp-filtro',renderProd)">Hoy</button></div>
       </div>
-      <div class="table-wrap"><table id="prod-panes-t"><thead><tr><th>#</th><th>Fecha</th><th>Turno</th><th>Tipo</th><th>Und.</th><th>Prod.</th><th>Def.</th><th>Neto</th><th>Obs.</th><th>✏️</th><th>🗑</th></tr></thead><tbody></tbody></table></div>
+      <div class="table-wrap"><table id="prod-panes-t"><thead><tr><th>#</th><th>Fecha</th><th>Turno</th><th>Tipo</th><th>Prod.</th><th>Def.</th><th>Neto</th><th>Obs.</th><th>✏️</th><th>🗑</th></tr></thead><tbody></tbody></table></div>
     </div>
   </div>
 
@@ -969,7 +969,7 @@ body.viewer-mode .cat-add-row{display:none!important}
       <div class="card-title" style="justify-content:space-between"><span>Registros de Pasteles</span>
         <div style="display:flex;gap:4px"><button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('pa-filtro',-1,renderProd)" title="Día anterior">◀</button><input type="date" id="pa-filtro" onchange="renderProd()" style="padding:6px 8px;border:1.5px solid var(--cream3);border-radius:8px;font-size:.78rem;background:var(--cream);outline:none;color:var(--brown)"><button class="btn bsec bsm" style="padding:6px 9px" onclick="navDia('pa-filtro',1,renderProd)" title="Día siguiente">▶</button><button class="btn bp bsm" onclick="irHoyFiltro('pa-filtro',renderProd)">Hoy</button></div>
       </div>
-      <div class="table-wrap"><table id="prod-past-t"><thead><tr><th>#</th><th>Fecha</th><th>Turno</th><th>Tipo</th><th>Und.</th><th>Prod.</th><th>Def.</th><th>Neto</th><th>Obs.</th><th>✏️</th><th>🗑</th></tr></thead><tbody></tbody></table></div>
+      <div class="table-wrap"><table id="prod-past-t"><thead><tr><th>#</th><th>Fecha</th><th>Turno</th><th>Tipo</th><th>Prod.</th><th>Def.</th><th>Neto</th><th>Obs.</th><th>✏️</th><th>🗑</th></tr></thead><tbody></tbody></table></div>
     </div>
   </div>
 </div>
@@ -1976,12 +1976,12 @@ async function renderEntradas(){
   const f=fEl.value;
   const data=rows.filter(r=>r.fecha===f).reverse();
   const tb=document.querySelector('#ent-table tbody');
-  if(!data.length){tb.innerHTML=empty(14);return}
+  if(!data.length){tb.innerHTML=empty(13);return}
   tb.innerHTML=data.map((r,i)=>`<tr>
     <td>${i+1}</td><td>${fmt(r.fecha)}</td>
     <td><span class="badge bins">${r.tipodoc||'—'}</span></td>
     <td>${r.numdoc||'—'}</td><td><b>${r.insumo}</b></td>
-    <td>${r.unidad||'—'}${r.equivDetalle?`<div style="font-size:.65rem;color:var(--gray)">${r.equivDetalle}</div>`:''}</td><td>${insumoCantidadTexto(r)}</td>
+    <td>${insumoCantidadTexto(r)}</td>
     <td>${money(r.precio)}</td>
     <td>${money(r.precioTotal||((r.precio||0)*(r.cantidad||0)))}</td>
     <td>${money(r.totalDoc)}</td>
@@ -2015,12 +2015,12 @@ async function renderSalidasIns(){
   const f=fEl.value;
   const data=rows.filter(r=>r.fecha===f).reverse();
   const tb=document.querySelector('#sal-ins-table tbody');
-  if(!data.length){tb.innerHTML=empty(10);return}
+  if(!data.length){tb.innerHTML=empty(9);return}
   tb.innerHTML=data.map((r,i)=>`<tr>
     <td>${i+1}</td><td>${fmt(r.fecha)}</td>
     <td><span class="badge bsal">${r.motivo||'—'}</span></td>
     <td>${r.ticket||'—'}</td><td><b>${r.insumo}</b></td>
-    <td>${r.unidad||'—'}${r.equivDetalle?`<div style="font-size:.65rem;color:var(--gray)">${r.equivDetalle}</div>`:''}</td><td>${insumoCantidadTexto(r)}</td>
+    <td>${insumoCantidadTexto(r)}</td>
     <td>${r.obs||r.obs_linea||'—'}</td>
     <td><button class="btn bsec bsm edit-btn" onclick="openEdit('salidas_ins',${r.id})">✏️</button></td>
     <td><button class="btn br bsm del-btn" onclick="del('salidas_ins',${r.id},renderSalidasIns)">🗑</button></td>
@@ -2108,10 +2108,10 @@ async function renderProd(){
   if(!fpaEl.value)fpaEl.value=hoy();
   const fp=fpEl.value,fpa=fpaEl.value;
   const mk=(data,tbId)=>{
-    const tb=document.querySelector('#'+tbId+' tbody');if(!data.length){tb.innerHTML=empty(11);return}
+    const tb=document.querySelector('#'+tbId+' tbody');if(!data.length){tb.innerHTML=empty(10);return}
     tb.innerHTML=data.map((r,i)=>`<tr>
       <td>${i+1}</td><td>${fmt(r.fecha)}</td><td>${r.turno||'—'}</td>
-      <td><b>${r.producto}</b></td><td>${r.unidad||'—'}${r.eqA?`<div style="font-size:.65rem;color:var(--gray)">${fmtQtyByUnit(r.eqA,r.unidadTeorica||'lata')} ${r.unidadTeorica||'lata'} / ${r.unidad||'presentación'}</div>`:''}</td>
+      <td><b>${r.producto}</b></td>
       <td>${prodCantidadTexto(r)}</td><td style="color:var(--red)">${fmtQty(r.defectuosa||0)}</td>
       <td><b style="color:var(--green)">${r.neto}</b></td><td>${r.obs||'—'}</td>
       <td><button class="btn bsec bsm edit-btn" onclick="openEdit('produccion',${r.id})">✏️</button></td>
@@ -2569,7 +2569,7 @@ let deferredPrompt = null;
 // Registrar Service Worker
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js?v=20260527-fracciones-teclado')
+    navigator.serviceWorker.register('sw.js?v=20260527-tablas-sin-unidad')
       .then(reg => console.log('SW registrado:', reg.scope))
       .catch(err => console.log('SW error:', err));
   });
