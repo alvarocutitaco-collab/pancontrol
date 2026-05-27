@@ -518,7 +518,8 @@ body.viewer-mode .del-btn,
 body.viewer-mode .form-card,
 body.viewer-mode #btn-save-cats,
 body.viewer-mode .inv-save-btn,
-body.viewer-mode .add-line-btn{display:none!important}
+body.viewer-mode .add-line-btn,
+body.viewer-mode .dash-actions{display:none!important}
 
 /* Inventario — viewer: no abrir panel de edición, ocultar botón guardar */
 body.viewer-mode .inv-summary-row{cursor:default!important}
@@ -541,9 +542,25 @@ body.viewer-mode .cat-add-row{display:none!important}
   display:flex;flex-direction:column;gap:8px;
   padding:0 12px;margin-bottom:14px;
 }
+.report-range{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
+  padding:10px;border:1px solid var(--cream3);
+  background:var(--cream);border-radius:var(--r3);
+}
+.report-range label{
+  display:flex;flex-direction:column;gap:4px;
+  font-size:.72rem;color:var(--gray);font-weight:700;
+}
+.report-range input{
+  padding:8px 10px;border:2px solid var(--cream3);
+  border-radius:var(--r3);background:#fff;color:var(--brown);
+  font-family:'DM Sans',sans-serif;font-size:.82rem;outline:none;
+}
+.report-range input:focus{border-color:var(--orange)}
 @media(min-width:480px){
   .dash-actions{flex-direction:row;flex-wrap:wrap}
   .dash-actions .btn{flex:1;min-width:140px}
+  .dash-actions .report-range{flex:1 1 100%}
 }
 #dash-fecha{
   font-size:.78rem;color:var(--gray);
@@ -563,6 +580,17 @@ body.viewer-mode .cat-add-row{display:none!important}
   font-family:'Playfair Display',serif;
   font-size:.95rem;padding-bottom:10px;
   border-bottom:2px solid var(--cream2);margin-bottom:12px;
+}
+.cat-search{
+  width:100%;padding:9px 12px;margin:0 0 12px;
+  border:2px solid var(--cream3);border-radius:var(--r3);
+  background:var(--cream);color:var(--brown);outline:none;
+  font-family:'DM Sans',sans-serif;font-size:.84rem;
+}
+.cat-search:focus{background:#fff;border-color:var(--orange)}
+.cat-empty{
+  color:var(--gray);font-size:.82rem;
+  padding:10px 2px;text-align:center;
 }
 .cat-items-grid{
   display:grid;
@@ -798,9 +826,17 @@ body.viewer-mode .cat-add-row{display:none!important}
     <div class="table-wrap"><table id="dash-crit-t"><thead><tr><th>Insumo</th><th>Stock</th><th>Mínimo</th></tr></thead><tbody></tbody></table></div>
   </div>
   <div class="dash-actions">
-    <button class="btn bgold" onclick="exportarExcel()">📊 Exportar Excel</button>
-    <button class="btn bg2" onclick="exportarDatos()">💾 Respaldo JSON</button>
-    <button class="btn bb" onclick="document.getElementById('importar-input').click()">📂 Importar Datos</button>
+    <div class="report-range">
+      <label>Reporte desde
+        <input type="date" id="rep-desde">
+      </label>
+      <label>Reporte hasta
+        <input type="date" id="rep-hasta">
+      </label>
+    </div>
+    <button class="btn bgold" onclick="exportarExcel()">📊 Descargar reporte Excel</button>
+    <button class="btn bg2" onclick="exportarDatos()">💾 Descargar backup</button>
+    <button class="btn bb" onclick="document.getElementById('importar-input').click()">📂 Cargar backup</button>
     <input type="file" id="importar-input" accept=".json" style="display:none" onchange="importarDatos(this)">
   </div>
   <div id="import-status" style="padding:0 12px 12px;font-size:.83rem;color:var(--green);display:none"></div>
@@ -1232,7 +1268,7 @@ async function cloudSaveCats(data){
 // INDEXEDDB
 // ════════════════════════════════════════════
 const DB='PanControl2',VER=2;
-let db,cats={insumos:[],panes:[],pasteles:[]},editCtx=null;
+let db,cats={insumos:[],panes:[],pasteles:[]},editCtx=null,catFilters={insumos:'',panes:'',pasteles:''};
 const DEF={
   encargados:[],destinos:[],
   insumos:Array.from({length:60},(_,i)=>["Harina de trigo","Levadura","Sal","Azúcar","Manteca / mantequilla","Huevos","Leche","Aceite vegetal","Harina especial (pastelería)","Crema pastelera","Azúcar en polvo","Cacao en polvo","Vainilla","Bicarbonato","Polvo de hornear","Colorante alimentario"][i]||`Insumo ${i+1}`),
@@ -1521,7 +1557,7 @@ function showPage(id,el){
   // Scroll al top
   document.getElementById('main').scrollTop=0;
   window.scrollTo(0,0);
-  setHoy('ent-fecha','sal-ins-fecha','pp-fecha','pa-fecha','sp-fecha');
+  setHoy('ent-fecha','sal-ins-fecha','pp-fecha','pa-fecha','sp-fecha','rep-desde','rep-hasta');
   if(id==='dashboard')renderDash();
   if(id==='inventario')renderInv();
   if(id==='insumos'){renderEntradas();renderSalidasIns()}
@@ -1547,22 +1583,36 @@ async function loadCats(){
 function renderCats(){
   const g=document.getElementById('cat-grid');
   const isViewer=document.body.classList.contains('viewer-mode');
-  const sec=(key,lbl,color,inputId)=>`<div class="cat-section">
+  const sec=(key,lbl,color,inputId)=>{
+    const q=(catFilters[key]||'').trim().toLowerCase();
+    const rows=cats[key].map((n,i)=>({n,i})).filter(x=>!q||String(x.n).toLowerCase().includes(q));
+    return `<div class="cat-section">
     <div class="cat-title" style="color:${color}">${lbl}</div>
+    <input class="cat-search" type="text" value="${escAttr(catFilters[key]||'')}" placeholder="Buscar ${key==='insumos'?'insumo':key==='panes'?'pan':'pastel'}..." oninput="filtrarCatalogo('${key}',this.value)">
     <div class="cat-items-grid">
-      ${cats[key].map((n,i)=>`<div class="cat-item cat-unit-card">
+      ${rows.length?rows.map(({n,i})=>`<div class="cat-item cat-unit-card">
         <span class="cat-item-num">${i+1}</span>
         <input type="text" value="${escAttr(n)}" data-cat="${key}" data-i="${i}" onchange="renameCatItem('${key}',${i},this.value);renderCats()">
         ${catalogUnitInput(key,n)}
         ${isViewer?'':'<button onclick="quitarCatItem(\''+key+'\','+i+')" style="border:none;background:none;color:var(--gray);cursor:pointer;font-size:.7rem;padding:0 2px;flex-shrink:0;line-height:1" title="Quitar">✕</button>'}
-      </div>`).join('')}
+      </div>`).join(''):'<div class="cat-empty">Sin resultados</div>'}
     </div>
     ${isViewer?'':'<div class="add-item-row cat-add-row"><input class="add-item-input" type="text" id="'+inputId+'" placeholder="Nuevo elemento..."><input class="add-item-input" type="text" list="unit-options" id="'+inputId+'-unidad" placeholder="Unidad..."><button class="add-item-btn" style="background:'+color+'" onclick="agregarCatItem(\''+key+'\',\''+inputId+'\')">+ Agregar</button></div>'}
-  </div>`;
+  </div>`};
   g.innerHTML='<datalist id="unit-options">'+UNIT_LIST.map(u=>`<option value="${escAttr(u)}"></option>`).join('')+'</datalist>'
              +sec('insumos','🌾 Insumos / Materia Prima','var(--orange)','new-insumo')
              +sec('panes','🍞 Tipos de Pan','var(--brown)','new-pan')
              +sec('pasteles','🎂 Pasteles / Repostería','var(--green)','new-pastel');
+}
+function filtrarCatalogo(key,value){
+  catFilters[key]=value||'';
+  renderCats();
+  const input=document.querySelector(`.cat-search[oninput*="${key}"]`);
+  if(input){
+    input.focus();
+    const len=input.value.length;
+    input.setSelectionRange(len,len);
+  }
 }
 function quitarCatItem(key,idx){
   const nombre=cats[key][idx];
@@ -2491,8 +2541,7 @@ async function renderDash(){
     <div class="scard"><div class="slbl">Insumos Ingresados</div><div class="sval">${entHoy.reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0)}</div><div class="ssub">${entHoy.length} línea(s)</div></div>
     <div class="scard gd"><div class="slbl">Insumos Usados</div><div class="sval">${salIHoy.reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0)}</div><div class="ssub">${salIHoy.length} línea(s)</div></div>
     <div class="scard g"><div class="slbl">Panes Netos</div><div class="sval">${fmtQty(prodHoy.filter(r=>r.tipo==='pan').reduce((s,r)=>s+toNum(r.neto),0))}</div><div class="ssub">${prodHoy.filter(r=>r.tipo==='pan').length} lote(s)</div></div>
-    <div class="scard gd"><div class="slbl">Pasteles Netos</div><div class="sval">${fmtQty(prodHoy.filter(r=>r.tipo==='pastel').reduce((s,r)=>s+toNum(r.neto),0))}</div><div class="ssub">${prodHoy.filter(r=>r.tipo==='pastel').length} lote(s)</div></div>
-    <div class="scard b"><div class="slbl">Salidas Productos</div><div class="sval">${spHoy.reduce((s,r)=>s+prodOutBaseQty(r),0)}</div><div class="ssub">${spHoy.length} despacho(s)</div></div>`;
+    <div class="scard gd"><div class="slbl">Pasteles Netos</div><div class="sval">${fmtQty(prodHoy.filter(r=>r.tipo==='pastel').reduce((s,r)=>s+toNum(r.neto),0))}</div><div class="ssub">${prodHoy.filter(r=>r.tipo==='pastel').length} lote(s)</div></div>`;
   const insMap={};
   entHoy.forEach(r=>{if(!insMap[r.insumo])insMap[r.insumo]={e:0,s:0,eu:getBaseUnit('insumos',r.insumo),ep:{},sp:{}};insMap[r.insumo].e+=baseQtyForRecord(r,'insumos','insumo');insMap[r.insumo].eu=r.unidadBase||insMap[r.insumo].eu;dashAddPractical(insMap[r.insumo].ep,r.cantidad,r.unidad)});
   salIHoy.forEach(r=>{if(!insMap[r.insumo])insMap[r.insumo]={e:0,s:0,eu:getBaseUnit('insumos',r.insumo),ep:{},sp:{}};insMap[r.insumo].s+=baseQtyForRecord(r,'insumos','insumo');insMap[r.insumo].eu=r.unidadBase||insMap[r.insumo].eu;dashAddPractical(insMap[r.insumo].sp,r.cantidad,r.unidad)});
@@ -2559,6 +2608,120 @@ async function importarDatos(input){
 // ════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════
+// Reportes admin: reemplaza las funciones anteriores sin tocar el resto de modulos.
+function isViewerMode(){return document.body.classList.contains('viewer-mode')||currentRole==='viewer'}
+function requireAdminExport(){
+  if(isViewerMode()){toast('⚠ Solo el administrador puede descargar o cargar archivos','var(--red)');return false}
+  return true;
+}
+function rangoReporte(){
+  let desde=document.getElementById('rep-desde')?.value||document.getElementById('dash-fecha-input')?.value||hoy();
+  let hasta=document.getElementById('rep-hasta')?.value||desde;
+  if(desde>hasta){const tmp=desde;desde=hasta;hasta=tmp}
+  return{desde,hasta,etiqueta:desde===hasta?desde:`${desde} a ${hasta}`};
+}
+function addWorkbookSheet(wb,name,rows,widths=[]){
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  const maxCols=rows.reduce((m,r)=>Math.max(m,r.length),0);
+  ws['!cols']=(widths.length?widths:Array.from({length:maxCols},()=>18)).map(w=>({wch:w}));
+  if(rows.length>1&&maxCols>0)ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:rows.length-1,c:maxCols-1}})};
+  XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31));
+}
+function groupSum(rows,keyFn,valFn){
+  const map={};
+  rows.forEach(r=>{const key=keyFn(r)||'Sin dato';map[key]=(map[key]||0)+(Number(valFn(r))||0)});
+  return Object.entries(map).sort((a,b)=>b[1]-a[1]);
+}
+function dateList(desde,hasta){
+  const out=[];const d=new Date(desde+'T12:00:00');const end=new Date(hasta+'T12:00:00');
+  while(d<=end){out.push(d.toISOString().split('T')[0]);d.setDate(d.getDate()+1)}
+  return out;
+}
+function dailyRows(dates,ent,salI,prod){
+  return dates.map(fecha=>[
+    fecha,
+    ent.filter(r=>r.fecha===fecha).reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0),
+    salI.filter(r=>r.fecha===fecha).reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0),
+    prod.filter(r=>r.fecha===fecha&&r.tipo==='pan').reduce((s,r)=>s+toNum(r.neto),0),
+    prod.filter(r=>r.fecha===fecha&&r.tipo==='pastel').reduce((s,r)=>s+toNum(r.neto),0)
+  ]);
+}
+async function exportarExcel(){
+  if(!requireAdminExport())return;
+  const{desde,hasta,etiqueta}=rangoReporte();
+  const inRango=r=>r.fecha>=desde&&r.fecha<=hasta;
+  const[entAll,salIAll,prodAll,spAll,invR]=await Promise.all([dbAll('entradas'),dbAll('salidas_ins'),dbAll('produccion'),dbAll('salida_prod'),dbAll('inventario')]);
+  const ent=entAll.filter(inRango),salI=salIAll.filter(inRango),prod=prodAll.filter(inRango);
+  const wb=XLSX.utils.book_new();
+  wb.Props={Title:'Reporte PanControl',Subject:`Reporte ${etiqueta}`,Author:'PanControl',CreatedDate:new Date()};
+  const insIngresados=ent.reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0);
+  const insUsados=salI.reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0);
+  const panesNetos=prod.filter(r=>r.tipo==='pan').reduce((s,r)=>s+toNum(r.neto),0);
+  const pastelesNetos=prod.filter(r=>r.tipo==='pastel').reduce((s,r)=>s+toNum(r.neto),0);
+  const topIng=groupSum(ent,r=>r.insumo,r=>baseQtyForRecord(r,'insumos','insumo'));
+  const topUso=groupSum(salI,r=>r.insumo,r=>baseQtyForRecord(r,'insumos','insumo'));
+  const prodTop=groupSum(prod,r=>`${r.producto}||${r.tipo}`,r=>toNum(r.neto));
+  addWorkbookSheet(wb,'Dashboard',[
+    ['PanControl - Dashboard de Reporte'],
+    ['Periodo',etiqueta,'Generado',new Date().toLocaleString('es-PE')],
+    [],
+    ['Indicador','Valor','Detalle'],
+    ['Insumos ingresados',insIngresados,`${ent.length} linea(s)`],
+    ['Insumos usados',insUsados,`${salI.length} linea(s)`],
+    ['Panes netos',panesNetos,`${prod.filter(r=>r.tipo==='pan').length} lote(s)`],
+    ['Pasteles netos',pastelesNetos,`${prod.filter(r=>r.tipo==='pastel').length} lote(s)`],
+    [],
+    ['Top insumos ingresados','','Top insumos usados',''],
+    ['Insumo','Cantidad','Insumo','Cantidad'],
+    ...Array.from({length:10},(_,i)=>[topIng[i]?.[0]||'',topIng[i]?.[1]||0,topUso[i]?.[0]||'',topUso[i]?.[1]||0]),
+    [],
+    ['Produccion por producto'],
+    ['Producto','Tipo','Neto'],
+    ...prodTop.slice(0,20).map(([k,v])=>{const[p,t]=k.split('||');return[p,t,v]})
+  ],[30,16,30,16]);
+  addWorkbookSheet(wb,'Resumen Diario',[['Fecha','Insumos ingresados','Insumos usados','Panes netos','Pasteles netos'],...dailyRows(dateList(desde,hasta),ent,salI,prod)],[14,18,16,14,14]);
+  const mkRows=(data,cols)=>[cols.map(c=>c.label),...data.map(r=>cols.map(c=>typeof c.val==='function'?c.val(r):(r[c.key]??'')))];
+  addWorkbookSheet(wb,'Entradas Insumos',mkRows(ent,[{key:'fecha',label:'Fecha'},{key:'tipodoc',label:'Tipo Doc.'},{key:'numdoc',label:'N° Doc.'},{key:'insumo',label:'Insumo'},{key:'unidad',label:'Unidad'},{key:'cantidad',label:'Cantidad'},{key:'precio',label:'Precio Unit.'},{key:'precioTotal',label:'Precio Total'},{key:'totalDoc',label:'Total Doc.'},{key:'proveedor',label:'Proveedor'},{key:'obs',label:'Obs.'}]),[12,12,14,28,12,12,14,14,14,22,24]);
+  addWorkbookSheet(wb,'Salidas Insumos',mkRows(salI,[{key:'fecha',label:'Fecha'},{key:'motivo',label:'Motivo'},{key:'ticket',label:'Ticket'},{key:'insumo',label:'Insumo'},{key:'unidad',label:'Unidad'},{key:'cantidad',label:'Cantidad'},{key:'obs',label:'Obs.'}]),[12,20,14,28,12,12,24]);
+  addWorkbookSheet(wb,'Produccion',mkRows(prod,[{key:'fecha',label:'Fecha'},{key:'tipo',label:'Categoria'},{key:'turno',label:'Turno'},{key:'producto',label:'Producto'},{key:'unidad',label:'Unidad practica'},{key:'cantidad',label:'Producido'},{key:'defectuosa',label:'Defectuoso'},{key:'neto',label:'Neto'},{key:'obs',label:'Obs.'}]),[12,12,12,28,16,12,12,12,24]);
+  const getInv=key=>{const r=invR.find(r=>r.key===key);return r||{si:0,aj:0,min:0}};
+  const invData=cats.insumos.map(n=>{
+    const e=entAll.filter(r=>r.insumo===n).reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0);
+    const s=salIAll.filter(r=>r.insumo===n).reduce((s,r)=>s+baseQtyForRecord(r,'insumos','insumo'),0);
+    const inv=getInv('ins_'+n);const stock=(inv.si||0)+e-s+(inv.aj||0);
+    return[n,e,s,inv.si||0,inv.aj||0,stock,inv.min||0,stock<=(inv.min||0)&&(inv.min||0)>0?'Bajo minimo':'OK'];
+  });
+  addWorkbookSheet(wb,'Inventario Insumos',[['Insumo','Entradas historicas','Salidas historicas','Stock inicial','Ajuste','Stock actual','Stock minimo','Estado'],...invData],[28,18,18,14,12,14,14,14]);
+  XLSX.writeFile(wb,`PanControl_Reporte_${desde}_${hasta}.xlsx`);
+  toast(`📊 Reporte exportado: ${etiqueta}`);
+}
+async function exportarDatos(){
+  if(!requireAdminExport())return;
+  const[ent,salI,prod,sp,invR,cats_r]=await Promise.all([dbAll('entradas'),dbAll('salidas_ins'),dbAll('produccion'),dbAll('salida_prod'),dbAll('inventario'),dbAll('catalogos')]);
+  const blob=new Blob([JSON.stringify({version:2,fecha_exportacion:new Date().toISOString(),entradas:ent,salidas_ins:salI,produccion:prod,salida_prod:sp,inventario:invR,catalogos:cats_r},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`PanControl_Backup_${hoy()}.json`;a.click();URL.revokeObjectURL(a.href);toast('✅ Datos exportados');
+}
+async function importarDatos(input){
+  if(!requireAdminExport()){input.value='';return}
+  const file=input.files[0];if(!file)return;
+  const status=document.getElementById('import-status');
+  status.style.display='block';status.style.color='var(--gold)';status.textContent='⏳ Importando datos...';
+  try{
+    const backup=JSON.parse(await file.text());
+    if(!backup.version||!backup.entradas){status.style.color='var(--red)';status.textContent='❌ Archivo inválido';return}
+    if(!confirm(`¿Importar respaldo del ${backup.fecha_exportacion?.split('T')[0]}?\nEntradas: ${backup.entradas?.length||0}, Producción: ${backup.produccion?.length||0}`)){status.style.display='none';input.value='';return}
+    let total=0;
+    for(const[store,rows] of [['entradas',backup.entradas],['salidas_ins',backup.salidas_ins],['produccion',backup.produccion],['salida_prod',backup.salida_prod],['inventario',backup.inventario]]){
+      if(!rows?.length)continue;const existing=await dbAll(store);const existingIds=new Set(existing.map(r=>r.id));
+      for(const row of rows){const{id,...rest}=row;if(!existingIds.has(id)){await dbAdd(store,rest);total++;}}
+    }
+    if(backup.catalogos?.length){const catRows=await dbAll('catalogos');if(!catRows.length){const{id,...catData}=backup.catalogos[backup.catalogos.length-1];await dbAdd('catalogos',catData);await loadCats();}}
+    status.style.color='var(--green)';status.textContent=`✅ ${total} registro(s) importados`;
+    renderDash();renderEntradas();renderSalidasIns();renderProd();
+  }catch(e){status.style.color='var(--red)';status.textContent='❌ Error: '+e.message}
+  input.value='';
+}
+
 async function init(){
   await openDB();await loadCats();
   setHoy('ent-fecha','sal-ins-fecha','pp-fecha','pa-fecha','sp-fecha');
@@ -2581,7 +2744,7 @@ let deferredPrompt = null;
 // Registrar Service Worker
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js?v=20260527-cantidades-insumos')
+    navigator.serviceWorker.register('sw.js?v=20260527-reportes-admin')
       .then(reg => console.log('SW registrado:', reg.scope))
       .catch(err => console.log('SW error:', err));
   });

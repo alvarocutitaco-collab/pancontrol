@@ -1,5 +1,5 @@
-// PanControl Service Worker v1.3
-const CACHE_NAME = 'pancontrol-v1.3-cantidades-insumos';
+// PanControl Service Worker v1.5
+const CACHE_NAME = 'pancontrol-v1.5-reportes-admin';
 
 // Archivos a cachear para uso offline
 const PRECACHE_URLS = [
