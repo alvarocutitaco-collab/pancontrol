@@ -932,7 +932,7 @@ body.viewer-mode .cat-add-row{display:none!important}
         <input type="hidden" id="pp-teo-und" value="quintal">
         <div class="fg"><label>Unidades</label><input type="number" id="pp-cant" min="0" step="0.01" placeholder="Total unidades finales"></div>
         <div class="fg"><label>Latas</label><input type="number" id="pp-pres-cant" min="0" step="0.01" placeholder="Total latas" oninput="calcProdBase('pp')"></div>
-        <div class="fg"><label>Quintales</label><input type="text" id="pp-eq-a" autocomplete="off" placeholder="Ej. 1/2, 2 3/4" oninput="calcProdBase('pp')"></div>
+        <div class="fg"><label>Quintales</label><input type="text" id="pp-eq-a" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ej. 1/2, 2 3/4" onfocus="this.type='text';this.inputMode='text'" onclick="this.type='text';this.inputMode='text'" oninput="calcProdBase('pp')"></div>
         <div class="fg"><label>Cant. Defectuosa</label><input type="number" id="pp-def" min="0" placeholder="0"></div>
         <div class="fg fgrid one"><label>Observaciones</label><input type="text" id="pp-obs" placeholder="Opcional"></div>
       </div>
@@ -2315,7 +2315,7 @@ async function openEdit(store,id){
     else if(fixedPanUnits&&f.k==='unidadTeorica')inp=`<input type="text" id="ef-${f.k}" value="quintal" readonly>`;
     else if(fixedPanUnits&&f.k==='unidadSub')inp=`<input type="text" id="ef-${f.k}" value="unidades" readonly>`;
     else if(f.t==='sel'||f.t==='selCat'){const list=f.k==='unidad'?unitOptionsForRecord(store,rec):(f.t==='selCat'?cats[f.cat]:f.opts);const opts=list.map(o=>`<option${o==rec[f.k]?' selected':''}>${o}</option>`).join('');inp=`<select id="ef-${f.k}"><option value="">${rec[f.k]||''}</option>${opts}</select>`;}
-    else if(fixedPanUnits&&f.k==='eqA')inp=`<input type="text" id="ef-${f.k}" value="${fmtFractionQty(rec[f.k]||0)}" autocomplete="off" placeholder="Ej. 1/2, 2 3/4">`;
+    else if(fixedPanUnits&&f.k==='eqA')inp=`<input type="text" id="ef-${f.k}" value="${fmtFractionQty(rec[f.k]||0)}" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ej. 1/2, 2 3/4" onfocus="this.type='text';this.inputMode='text'" onclick="this.type='text';this.inputMode='text'">`;
     else if(f.t==='num')inp=`<input type="number" id="ef-${f.k}" value="${rec[f.k]||0}" min="0" step="0.01">`;
     else if(f.t==='date')inp=`<input type="date" id="ef-${f.k}" value="${rec[f.k]||''}">`;
     else inp=`<input type="text" id="ef-${f.k}" value="${rec[f.k]||''}">`;
@@ -2569,7 +2569,7 @@ let deferredPrompt = null;
 // Registrar Service Worker
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js')
+    navigator.serviceWorker.register('sw.js?v=20260527-fracciones-teclado')
       .then(reg => console.log('SW registrado:', reg.scope))
       .catch(err => console.log('SW error:', err));
   });

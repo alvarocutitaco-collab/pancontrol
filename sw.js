@@ -1,5 +1,5 @@
-// PanControl Service Worker v1.0
-const CACHE_NAME = 'pancontrol-v1';
+// PanControl Service Worker v1.1
+const CACHE_NAME = 'pancontrol-v1.1-fracciones-teclado';
 
 // Archivos a cachear para uso offline
 const PRECACHE_URLS = [
