@@ -1768,7 +1768,19 @@ function leerLineas(containerId){
 function insumoCantidadTexto(r){
   const unidadBase=r.unidadBase||getBaseUnit('insumos',r.insumo);
   const cantidadBase=Number.isFinite(r.cantidadBase)?r.cantidadBase:baseQtyForRecord(r,'insumos','insumo');
-  return `<b>${fmtQty(r.cantidad)} ${r.unidad||''}</b> <span style="color:var(--gray);font-size:.78rem">- ${fmtQty(cantidadBase)} ${unidadBase}</span>`;
+  const items=[];
+  const add=(qty,unit,strong=false)=>{
+    const q=toNum(qty),u=String(unit||'').trim();
+    if(q<=0||!u)return;
+    const exists=items.some(x=>normTxt(x.unit)===normTxt(u)&&Math.abs(toNum(x.qty)-q)<.0001);
+    if(!exists)items.push({qty:q,unit:u,strong});
+  };
+  add(r.cantidad,r.unidad,true);
+  const pack=toNum(r.packInterno)||1;
+  const unidadInterna=String(r.unidadInterna||'').trim();
+  if(unidadInterna&&(pack>1||normTxt(unidadInterna)!==normTxt(r.unidad)))add(toNum(r.cantidad)*pack,unidadInterna);
+  add(cantidadBase,unidadBase);
+  return items.map((x,i)=>i===0?`<b>${fmtQty(x.qty)} ${x.unit}</b>`:`<div style="color:var(--gray);font-size:.78rem">${fmtQty(x.qty)} ${x.unit}</div>`).join('');
 }
 
 // ════════════════════════════════════════════
@@ -2569,7 +2581,7 @@ let deferredPrompt = null;
 // Registrar Service Worker
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js?v=20260527-tablas-sin-unidad')
+    navigator.serviceWorker.register('sw.js?v=20260527-cantidades-insumos')
       .then(reg => console.log('SW registrado:', reg.scope))
       .catch(err => console.log('SW error:', err));
   });

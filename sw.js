@@ -1,5 +1,5 @@
-// PanControl Service Worker v1.2
-const CACHE_NAME = 'pancontrol-v1.2-tablas-sin-unidad';
+// PanControl Service Worker v1.3
+const CACHE_NAME = 'pancontrol-v1.3-cantidades-insumos';
 
 // Archivos a cachear para uso offline
 const PRECACHE_URLS = [
