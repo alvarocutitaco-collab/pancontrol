@@ -98,8 +98,9 @@ export default {
         "- producto, item, descripcion, detalle, concepto, articulo, mercaderia = descripcion_original",
         "- cant, cantidad, qty, und, unidades = cantidad",
         "- unidad, und, um, u.m. = unidad",
-        "- p.u., pu, valor unitario, precio unitario, unit price = precio_unitario_original",
-        "- importe, total, valor venta, precio total, subtotal linea = precio_total_original",
+        "- p.u., pu, precio venta, precio unitario, unit price = precio_unitario_original cuando sea el precio cobrado por unidad",
+        "- v/u, valor unitario, valor unit, valor venta unitario = valor unitario normalmente SIN IGV",
+        "- importe, total, valor, valor venta, precio total, subtotal linea = precio_total_original",
         "- descuento, dscto, desc, bonif, descuento a, descuento b = descuento_linea o descuento_global",
         "",
         "Campos de control de stock por producto:",
@@ -114,6 +115,16 @@ export default {
         "Regla de negocio de PanControl:",
         "La app debe registrar cada producto con PRECIO FINAL CON IGV Y DESCUENTOS APLICADOS. Por eso precio_unitario y precio_total deben ser los valores finales para inventario, no necesariamente los valores brutos impresos.",
         "La suma de todos los precio_total de los items debe coincidir con el total final del documento con IGV, salvo diferencia de redondeo minima.",
+        "",
+        "Patrones reales de facturas peruanas que debes reconocer:",
+        "A. Lineas SIN IGV + IGV al final: si la suma de la columna Total/Valor/Importe coincide con 'Total gravado', 'Valor venta', 'Op. gravadas' o con el subtotal antes de IGV, entonces cada linea esta sin IGV. precio_total final = linea_sin_igv * total_documento / base_gravada.",
+        "B. Lineas CON IGV: si la suma de los importes de linea ya coincide con 'Total', 'Imp Total', 'Total a pagar' o el monto en letras, no agregues IGV otra vez. Marca incluye_igv=true.",
+        "C. Descuento global: si aparece 'Total descuentos', 'Descuento (-)', '%desc', '%dsc', 'Dcto' o 'Dscto Especial' fuera de las lineas, no lo registres como item. Prorratealo entre los productos proporcionalmente a su valor bruto.",
+        "D. Descuento por linea: si cada fila tiene columna DSCTO/%DSCT/%D1/%D2, resta ese descuento antes de aplicar IGV si el documento usa valores sin IGV.",
+        "E. Cargos globales: embalaje, flete, portes, recargo, redondeo o cargos similares tampoco son items. Sumalos en cargos_globales y prorratealos si forman parte del total a pagar.",
+        "F. Columnas V/U y P/U juntas: V/U suele ser valor unitario sin IGV; P/U suele ser precio unitario con IGV. Usa la columna que haga cuadrar los importes y el total del documento.",
+        "G. Tickets angostos: si los importes de linea suman exactamente el TOTAL y abajo aparece SUB TOTAL + IGV, entonces los importes de linea ya incluyen IGV; no los multipliques por 1.18.",
+        "H. Facturas en USD: conserva moneda USD o US$; igual debes cuadrar los importes con el total final.",
         "Reglas estrictas:",
         "1. Cuenta cada fila de producto visible una sola vez.",
         "2. Si hay 6 filas de productos visibles, devuelve 6 items. No dividas una misma descripcion en varios items.",
@@ -130,6 +141,8 @@ export default {
         "13. Usa 0 solo cuando el dato realmente no aparece y no se puede calcular.",
         "14. No inventes productos ni cantidades que no se vean.",
         "15. En metodo_prorrateo explica brevemente como aplicaste descuentos e IGV: por ejemplo 'lineas sin IGV + descuento global prorrateado + IGV 18%'.",
+        "16. Antes de responder, haz una auditoria numerica: compara suma de lineas brutas, descuento global, gravada/subtotal, IGV y total. Elige la interpretacion que cierre mejor con el total.",
+        "17. Si hay varias interpretaciones, prioriza la que haga que sum(precio_total) sea igual al TOTAL A PAGAR y deja advertencia breve.",
         "Usa el catalogo solo para normalizar insumo cuando la coincidencia sea clara; conserva siempre descripcion_original con el texto leido.",
         "",
         "Catalogo de insumos:",
@@ -254,8 +267,6 @@ function normalizeInvoice(doc) {
       };
     });
 
-  const sumaLineas = round2(doc.items.reduce((sum, item) => sum + Number(item.precio_total || 0), 0));
-  if (!Number(doc.total || 0) && sumaLineas > 0) doc.total = sumaLineas;
   doc.subtotal = Number(doc.subtotal || 0);
   doc.igv = Number(doc.igv || 0);
   doc.descuento_global = Number(doc.descuento_global || 0);
@@ -263,30 +274,113 @@ function normalizeInvoice(doc) {
   doc.total = Number(doc.total || 0);
   doc.moneda = doc.moneda || "PEN";
   doc.advertencias = Array.isArray(doc.advertencias) ? doc.advertencias : [];
-  if (doc.total > 0 && sumaLineas > 0 && Math.abs(doc.total - sumaLineas) > 0.1) {
-    prorateLineTotals(doc, sumaLineas);
-  }
+  reconcileInvoiceTotals(doc);
   return doc;
 }
 
-function prorateLineTotals(doc, sumaLineas) {
+function reconcileInvoiceTotals(doc) {
+  if (!doc.items.length) return;
+  const sumFinal = round2(doc.items.reduce((sum, item) => sum + Number(item.precio_total || 0), 0));
+  const sumOriginal = round2(doc.items.reduce((sum, item) => sum + Number(item.precio_total_original || item.precio_total || 0), 0));
+  const sumSinIgv = round2(doc.items.reduce((sum, item) => sum + Number(item.precio_total_sin_igv || 0), 0));
+  if (!Number(doc.total || 0)) {
+    doc.total = sumFinal || sumOriginal || sumSinIgv;
+    return;
+  }
   const target = round2(doc.total);
-  const base = sumaLineas > 0 ? sumaLineas : doc.items.reduce((sum, item) => sum + Number(item.precio_total_original || 0), 0);
+  if (isClose(sumFinal, target)) {
+    doc.items = fixLastCent(doc.items, target);
+    return;
+  }
+  if (isClose(sumOriginal, target)) {
+    applyFinalTotals(doc, item => Number(item.precio_total_original || item.precio_total || 0), sumOriginal, "Los importes de linea ya incluyen IGV; no se agrego IGV nuevamente.");
+    doc.precios_incluyen_igv = true;
+    return;
+  }
+  if (doc.subtotal > 0 && (isClose(sumOriginal, doc.subtotal) || isClose(sumSinIgv, doc.subtotal))) {
+    const baseField = isClose(sumSinIgv, doc.subtotal) ? "precio_total_sin_igv" : "precio_total_original";
+    applyFinalTotals(doc, item => Number(item[baseField] || item.precio_total_original || item.precio_total || 0), doc.subtotal, "Lineas sin IGV; IGV/cargos/descuentos aplicados proporcionalmente al total.");
+    doc.precios_incluyen_igv = false;
+    return;
+  }
+  const netAfterDiscount = round2(sumOriginal - Number(doc.descuento_global || 0));
+  if (doc.descuento_global > 0 && doc.subtotal > 0 && isClose(netAfterDiscount, doc.subtotal)) {
+    applyFinalTotals(doc, item => Number(item.precio_total_original || item.precio_total || 0), sumOriginal, "Descuento global prorrateado; IGV/cargos aplicados proporcionalmente.");
+    doc.precios_incluyen_igv = false;
+    return;
+  }
+  if (doc.igv > 0 && isClose(round2(sumOriginal + doc.igv + Number(doc.cargos_globales || 0)), target)) {
+    applyFinalTotals(doc, item => Number(item.precio_total_original || item.precio_total || 0), sumOriginal, "Lineas sin IGV; IGV/cargos aplicados proporcionalmente.");
+    doc.precios_incluyen_igv = false;
+    return;
+  }
+  const bestBase = chooseBestBase(doc, { sumFinal, sumOriginal, sumSinIgv });
+  if (bestBase.sum > 0) {
+    applyFinalTotals(doc, bestBase.getter, bestBase.sum, bestBase.reason);
+  }
+}
+
+function chooseBestBase(doc, sums) {
+  const candidates = [
+    {
+      sum: sums.sumFinal,
+      getter: item => Number(item.precio_total || 0),
+      reason: "Total final prorrateado desde importes calculados por IA."
+    },
+    {
+      sum: sums.sumOriginal,
+      getter: item => Number(item.precio_total_original || item.precio_total || 0),
+      reason: "Total final prorrateado desde importes originales impresos."
+    },
+    {
+      sum: sums.sumSinIgv,
+      getter: item => Number(item.precio_total_sin_igv || 0),
+      reason: "Total final prorrateado desde importes sin IGV."
+    }
+  ].filter(c => c.sum > 0);
+  const reference = doc.subtotal > 0 ? doc.subtotal : doc.total;
+  candidates.sort((a, b) => Math.abs(a.sum - reference) - Math.abs(b.sum - reference));
+  return candidates[0] || { sum: 0, getter: () => 0, reason: "" };
+}
+
+function applyFinalTotals(doc, getBaseAmount, base, reason) {
+  const target = round2(doc.total);
   if (!target || !base) return;
   let running = 0;
   doc.items = doc.items.map((item, index) => {
-    const factor = Number(item.precio_total || item.precio_total_original || 0) / base;
+    const baseAmount = Math.max(0, Number(getBaseAmount(item) || 0));
+    const factor = baseAmount / base;
     let finalTotal = index === doc.items.length - 1 ? round2(target - running) : round2(target * factor);
     running = round2(running + finalTotal);
+    const sinIgv = doc.igv > 0 ? round2(finalTotal / 1.18) : Number(item.precio_total_sin_igv || finalTotal);
     return {
       ...item,
       precio_total: finalTotal,
       precio_unitario: item.cantidad > 0 ? round4(finalTotal / item.cantidad) : 0,
-      observacion: [item.observacion, "Precio final ajustado para cuadrar con total de factura"].filter(Boolean).join(" | ")
+      precio_total_sin_igv: item.precio_total_sin_igv > 0 ? item.precio_total_sin_igv : sinIgv,
+      igv_linea: doc.igv > 0 ? round2(finalTotal - sinIgv) : Number(item.igv_linea || 0),
+      observacion: [item.observacion, reason].filter(Boolean).join(" | ")
     };
   });
-  doc.metodo_prorrateo = doc.metodo_prorrateo || "Total final prorrateado proporcionalmente entre lineas";
-  doc.advertencias.push(`Se prorratearon descuentos/IGV/cargos para que las lineas sumen ${target}.`);
+  doc.items = fixLastCent(doc.items, target);
+  doc.metodo_prorrateo = doc.metodo_prorrateo || reason;
+  doc.advertencias.push(`${reason} Suma final de lineas: ${target}.`);
+}
+
+function fixLastCent(items, target) {
+  const diff = round2(target - items.reduce((sum, item) => sum + Number(item.precio_total || 0), 0));
+  if (!items.length || Math.abs(diff) > 0.05 || diff === 0) return items;
+  const last = items[items.length - 1];
+  const precioTotal = round2(Number(last.precio_total || 0) + diff);
+  return items.map((item, index) => index === items.length - 1 ? {
+    ...last,
+    precio_total: precioTotal,
+    precio_unitario: last.cantidad > 0 ? round4(precioTotal / last.cantidad) : 0
+  } : item);
+}
+
+function isClose(a, b, tolerance = 0.1) {
+  return Math.abs(round2(a) - round2(b)) <= tolerance;
 }
 
 function round2(value) {

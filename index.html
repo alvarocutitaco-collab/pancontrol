@@ -932,7 +932,7 @@ body.viewer-mode .cat-add-row{display:none!important}
         <input type="hidden" id="pp-teo-und" value="quintal">
         <div class="fg"><label>Unidades</label><input type="number" id="pp-cant" min="0" step="0.01" placeholder="Total unidades finales"></div>
         <div class="fg"><label>Latas</label><input type="number" id="pp-pres-cant" min="0" step="0.01" placeholder="Total latas" oninput="calcProdBase('pp')"></div>
-        <div class="fg"><label>Quintales</label><input type="number" id="pp-eq-a" min="0" step="0.01" placeholder="Total quintales" oninput="calcProdBase('pp')"></div>
+        <div class="fg"><label>Quintales</label><input type="text" id="pp-eq-a" inputmode="decimal" placeholder="Ej. 1/2, 2 3/4" oninput="calcProdBase('pp')"></div>
         <div class="fg"><label>Cant. Defectuosa</label><input type="number" id="pp-def" min="0" placeholder="0"></div>
         <div class="fg fgrid one"><label>Observaciones</label><input type="text" id="pp-obs" placeholder="Opcional"></div>
       </div>
@@ -1248,6 +1248,33 @@ function normalizeUnitList(value){
 }
 function toNum(v){const n=parseFloat(String(v??'').replace(',','.'));return Number.isFinite(n)?n:0}
 function fmtQty(n){const x=toNum(n);return Number.isInteger(x)?String(x):String(Math.round(x*1000)/1000)}
+function parseMixedQty(value){
+  if(typeof value==='number')return Number.isFinite(value)?value:0;
+  const txt=String(value||'').trim().replace(',', '.');
+  if(!txt)return 0;
+  const parts=txt.split(/\s+/).filter(Boolean);
+  const parsePart=part=>{
+    const frac=String(part||'').split('/');
+    if(frac.length===2){
+      const num=toNum(frac[0]),den=toNum(frac[1]);
+      return den>0?num/den:0;
+    }
+    return toNum(part);
+  };
+  if(parts.length===1)return parsePart(parts[0]);
+  return parts.reduce((sum,part)=>sum+parsePart(part),0);
+}
+function fmtFractionQty(value){
+  const x=toNum(value),whole=Math.floor(x),frac=x-whole;
+  const quarters=[{v:.25,t:'1/4'},{v:.5,t:'1/2'},{v:.75,t:'3/4'}];
+  const q=quarters.find(f=>Math.abs(frac-f.v)<.01);
+  if(q)return `${whole?whole+' ':''}${q.t}`;
+  if(Math.abs(frac)<.01)return String(whole);
+  return fmtQty(x);
+}
+function fmtQtyByUnit(value,unit){
+  return normTxt(unit)==='quintal'?fmtFractionQty(value):fmtQty(value);
+}
 function money(n){const x=toNum(n);return x>0?'S/. '+x.toFixed(2):'—'}
 function factorFromText(value){
   if(typeof value==='number')return value>0?value:0;
@@ -2053,7 +2080,8 @@ function prodCantidadTeorica(rec){
 }
 function prodCantidadTexto(r){
   const pract=`${fmtQty(r.cantidadPresentacion||r.cantidad)} ${r.unidad||''}`;
-  const teor=`${fmtQty(prodCantidadTeorica(r))} ${r.unidadTeorica||(r.tipo==='pan'?'quintal':'lata')}`;
+  const unidadTeorica=r.unidadTeorica||(r.tipo==='pan'?'quintal':'lata');
+  const teor=`${fmtQtyByUnit(prodCantidadTeorica(r),unidadTeorica)} ${unidadTeorica}`;
   const sub=`${fmtQty(r.cantidad)} ${r.unidadSub||r.unidadBase||getBaseUnit(r.tipo==='pastel'?'pasteles':'panes',r.producto)}`;
   return `<b>${pract}</b><div style="font-size:.68rem;color:var(--gray)">${teor} - ${sub}</div>`;
 }
@@ -2061,7 +2089,7 @@ async function guardarProd(tipo){
   const pre=tipo==='pan'?'pp':'pa',key=tipo==='pan'?'panes':'pasteles';
   calcProdBase(pre);
   const cant=toNum(v(pre+'-cant')),def=toNum(v(pre+'-def'));
-  const presCant=toNum(v(pre+'-pres-cant')),teoCant=toNum(v(pre+'-eq-a')),factor=prodFactorFromInputs(pre);
+  const presCant=toNum(v(pre+'-pres-cant')),teoCant=tipo==='pan'?parseMixedQty(v(pre+'-eq-a')):toNum(v(pre+'-eq-a')),factor=prodFactorFromInputs(pre);
   if(!v(pre+'-tipo')||cant<=0){toast('⚠ Completa tipo y cantidad','var(--red)');return}
   if(def<0||def>cant){toast('⚠ Revisa cantidad defectuosa','var(--red)');return}
   if(presCant<=0||teoCant<0||(tipo==='pan'&&teoCant<=0)){toast('⚠ Revisa cantidades de producción','var(--red)');return}
@@ -2083,7 +2111,7 @@ async function renderProd(){
     const tb=document.querySelector('#'+tbId+' tbody');if(!data.length){tb.innerHTML=empty(11);return}
     tb.innerHTML=data.map((r,i)=>`<tr>
       <td>${i+1}</td><td>${fmt(r.fecha)}</td><td>${r.turno||'—'}</td>
-      <td><b>${r.producto}</b></td><td>${r.unidad||'—'}${r.eqA?`<div style="font-size:.65rem;color:var(--gray)">${fmtQty(r.eqA)} ${r.unidadTeorica||'lata'} / ${r.unidad||'presentación'}</div>`:''}</td>
+      <td><b>${r.producto}</b></td><td>${r.unidad||'—'}${r.eqA?`<div style="font-size:.65rem;color:var(--gray)">${fmtQtyByUnit(r.eqA,r.unidadTeorica||'lata')} ${r.unidadTeorica||'lata'} / ${r.unidad||'presentación'}</div>`:''}</td>
       <td>${prodCantidadTexto(r)}</td><td style="color:var(--red)">${fmtQty(r.defectuosa||0)}</td>
       <td><b style="color:var(--green)">${r.neto}</b></td><td>${r.obs||'—'}</td>
       <td><button class="btn bsec bsm edit-btn" onclick="openEdit('produccion',${r.id})">✏️</button></td>
@@ -2287,6 +2315,7 @@ async function openEdit(store,id){
     else if(fixedPanUnits&&f.k==='unidadTeorica')inp=`<input type="text" id="ef-${f.k}" value="quintal" readonly>`;
     else if(fixedPanUnits&&f.k==='unidadSub')inp=`<input type="text" id="ef-${f.k}" value="unidades" readonly>`;
     else if(f.t==='sel'||f.t==='selCat'){const list=f.k==='unidad'?unitOptionsForRecord(store,rec):(f.t==='selCat'?cats[f.cat]:f.opts);const opts=list.map(o=>`<option${o==rec[f.k]?' selected':''}>${o}</option>`).join('');inp=`<select id="ef-${f.k}"><option value="">${rec[f.k]||''}</option>${opts}</select>`;}
+    else if(fixedPanUnits&&f.k==='eqA')inp=`<input type="text" id="ef-${f.k}" value="${fmtFractionQty(rec[f.k]||0)}" inputmode="decimal" placeholder="Ej. 1/2, 2 3/4">`;
     else if(f.t==='num')inp=`<input type="number" id="ef-${f.k}" value="${rec[f.k]||0}" min="0" step="0.01">`;
     else if(f.t==='date')inp=`<input type="date" id="ef-${f.k}" value="${rec[f.k]||''}">`;
     else inp=`<input type="text" id="ef-${f.k}" value="${rec[f.k]||''}">`;
@@ -2297,7 +2326,7 @@ async function openEdit(store,id){
 async function saveEdit(){
   if(!editCtx)return;const{store,id,rec}=editCtx;const fields=FIELDS[store]||[];
   const updated={...rec};
-  fields.forEach(f=>{const val=document.getElementById('ef-'+f.k)?.value||'';updated[f.k]=f.t==='num'?parseFloat(val)||0:val});
+  fields.forEach(f=>{const val=document.getElementById('ef-'+f.k)?.value||'';updated[f.k]=store==='produccion'&&rec.tipo==='pan'&&f.k==='eqA'?parseMixedQty(val):(f.t==='num'?parseFloat(val)||0:val)});
   if(store==='entradas'||store==='salidas_ins'){
     updated.factorBase=updated.factorBase>0?updated.factorBase:getEquivFactor('insumos',updated.insumo,updated.unidad);
     updated.unidadBase=updated.unidadBase||getBaseUnit('insumos',updated.insumo);
@@ -2388,7 +2417,7 @@ function dashAddPractical(map, qty, unit){
   map[u]=(map[u]||0)+(parseFloat(qty)||0);
 }
 function dashPracticalText(map){
-  return Object.entries(map||{}).map(([u,q])=>`${fmtQty(q)} ${u}`).join(', ');
+  return Object.entries(map||{}).map(([u,q])=>`${fmtQtyByUnit(q,u)} ${u}`).join(', ');
 }
 function dashQtyHtml(practicalMap, baseQty, baseUnit, color){
   const practical=dashPracticalText(practicalMap);
@@ -2428,7 +2457,8 @@ function renderDashProduccion(prodHoy){
   }
   panesT.innerHTML=panes.length?panes.map(r=>{
     const practica=`${fmtQty(r.cantidadPresentacion||0)} ${r.unidad||'lata'}`.trim();
-    const sub=`${fmtQty(prodCantidadTeorica(r))} ${r.unidadTeorica||'quintal'}`.trim();
+    const unidadTeorica=r.unidadTeorica||'quintal';
+    const sub=`${fmtQtyByUnit(prodCantidadTeorica(r),unidadTeorica)} ${unidadTeorica}`.trim();
     return `<tr><td>${r.producto}</td><td><b>${fmtQty(r.neto)}</b></td><td>${practica||'—'}</td><td>${sub||'—'}</td></tr>`;
   }).join(''):`<tr><td colspan="4" class="empty">Sin panes hoy</td></tr>`;
   pastelesT.innerHTML=pasteles.length?pasteles.map(r=>`<tr><td>${r.producto}</td><td><b>${fmtQty(r.neto)}</b></td></tr>`).join(''):`<tr><td colspan="2" class="empty">Sin pasteles hoy</td></tr>`;
