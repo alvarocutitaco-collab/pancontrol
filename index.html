@@ -983,7 +983,6 @@ body.viewer-mode .cat-add-row{display:none!important}
   </div>
   <div class="tabs">
     <div class="tab active" onclick="switchTab('inv','ins',this)">🌾 Insumos <span id="inv-ins-badge"></span></div>
-    <div class="tab" onclick="switchTab('inv','prod',this)">🍞🎂 Productos</div>
   </div>
 
   <!-- TAB INSUMOS -->
@@ -1007,26 +1006,6 @@ body.viewer-mode .cat-add-row{display:none!important}
     </div>
   </div>
 
-  <!-- TAB PRODUCTOS -->
-  <div class="tc" id="inv-tab-prod">
-    <div class="inv-toolbar">
-      <input class="inv-search" type="text" id="inv-prod-search" placeholder="Buscar producto..." oninput="filterInv('prod')">
-      <button class="inv-sort-btn active" id="inv-prod-sort-stock" onclick="sortInv('prod','stock')">⬆ Stock</button>
-      <button class="inv-sort-btn" id="inv-prod-sort-az" onclick="sortInv('prod','az')">A–Z</button>
-    </div>
-    <div style="padding:0 12px;overflow-x:auto">
-      <table class="inv-summary-table">
-        <thead><tr>
-          <th>Producto</th>
-          <th style="text-align:center">Producido</th>
-          <th style="text-align:center">Despachado</th>
-          <th style="text-align:center">Stock</th>
-          <th>Tipo</th>
-        </tr></thead>
-        <tbody id="inv-prod-tbody"></tbody>
-      </table>
-    </div>
-  </div>
 </div>
 
 <!-- ── CATÁLOGOS ── -->
@@ -1348,7 +1327,21 @@ function getCatalogUnits(key,name){
   const eq=getEquivalencias(key,name).map(e=>e.nombre);
   return [...new Set([...base,...eq])];
 }
-function setCatalogUnits(key,name,value){if(!cats.unidades)cats.unidades={insumos:{},panes:{},pasteles:{}};if(!cats.unidades[key])cats.unidades[key]={};cats.unidades[key][name]=normalizeUnitList(value).length?normalizeUnitList(value):[defaultUnitFor(key,name)]}
+function getPracticalUnitLabel(key,name){
+  const units=getCatalogUnits(key,name);
+  return units.length?units.join(', '):getBaseUnit(key,name);
+}
+function setCatalogUnits(key,name,value){
+  if(!cats.unidades)cats.unidades={insumos:{},panes:{},pasteles:{}};
+  if(!cats.unidades[key])cats.unidades[key]={};
+  const units=normalizeUnitList(value).length?normalizeUnitList(value):[defaultUnitFor(key,name)];
+  cats.unidades[key][name]=units;
+  if(key==='insumos'||key==='panes'||key==='pasteles'){
+    if(!cats.baseUnits)cats.baseUnits={insumos:{},panes:{},pasteles:{}};
+    if(!cats.baseUnits[key])cats.baseUnits[key]={};
+    cats.baseUnits[key][name]=units[0]||defaultUnitFor(key,name);
+  }
+}
 function renameCatItem(key,idx,value){
   const oldName=cats[key][idx],newName=(value||'').trim()||oldName;
   cats[key][idx]=newName;
@@ -2138,10 +2131,10 @@ async function renderSalidaProd(){
 // ════════════════════════════════════════════
 // INVENTARIO — VISTA MEJORADA
 // ════════════════════════════════════════════
-let _invInsData=[], _invProdData=[], _invInsSort='stock', _invProdSort='stock';
+let _invInsData=[], _invInsSort='stock';
 
 async function renderInv(){
-  const[ent,sal,prod,sp,invR]=await Promise.all([dbAll('entradas'),dbAll('salidas_ins'),dbAll('produccion'),dbAll('salida_prod'),dbAll('inventario')]);
+  const[ent,sal,invR]=await Promise.all([dbAll('entradas'),dbAll('salidas_ins'),dbAll('inventario')]);
   const getInv=key=>{const r=invR.find(r=>r.key===key);return r||{key,si:0,aj:0,min:0}};
 
   // Construir datos insumos
@@ -2151,17 +2144,7 @@ async function renderInv(){
     const inv=getInv('ins_'+n);
     const stock=(inv.si||0)+e-s+(inv.aj||0);
     const min=inv.min||0;
-    return{idx:i,n,e,s,stock,min,inv,baseUnit:getBaseUnit('insumos',n),low:min>0&&stock<=min,mid:min>0&&stock>min&&stock<=min*1.5};
-  });
-
-  // Construir datos productos
-  const allP=[...cats.panes.map(n=>({n,t:'Pan'})),...cats.pasteles.map(n=>({n,t:'Pastel'}))];
-  _invProdData=allP.map(({n,t},i)=>{
-    const producido=prod.filter(r=>r.producto===n).reduce((s,r)=>s+r.neto,0);
-    const despachado=sp.filter(r=>r.producto===n).reduce((s,r)=>s+prodOutBaseQty(r),0);
-    const inv=getInv('prod_'+n);
-    const stock=(inv.si||0)+producido-despachado+(inv.aj||0);
-    return{idx:i,n,t,producido,despachado,stock,inv,baseUnit:getBaseUnit(t==='Pastel'?'pasteles':'panes',n),low:stock<=0};
+    return{idx:i,n,e,s,stock,min,inv,baseUnit:getBaseUnit('insumos',n),unitLabel:getPracticalUnitLabel('insumos',n),low:min>0&&stock<=min,mid:min>0&&stock>min&&stock<=min*1.5};
   });
 
   // Badge de alertas
@@ -2170,7 +2153,6 @@ async function renderInv(){
   if(badge) badge.innerHTML=lowCount>0?`<span class="inv-count-badge">${lowCount}</span>`:'';
 
   _renderInvIns();
-  _renderInvProd();
 }
 
 function _sortedIns(q){
@@ -2180,14 +2162,6 @@ function _sortedIns(q){
   else arr.sort((a,b)=>a.n.localeCompare(b.n,'es'));
   return arr;
 }
-function _sortedProd(q){
-  let arr=[..._invProdData];
-  if(q){const lq=q.toLowerCase();arr=arr.filter(x=>x.n.toLowerCase().includes(lq));}
-  if(_invProdSort==='stock') arr.sort((a,b)=>a.stock-b.stock);
-  else arr.sort((a,b)=>a.n.localeCompare(b.n,'es'));
-  return arr;
-}
-
 function _renderInvIns(){
   const q=(document.getElementById('inv-ins-search')||{}).value||'';
   const arr=_sortedIns(q);
@@ -2201,9 +2175,9 @@ function _renderInvIns(){
     const statusIcon=x.low?'🔴':x.mid?'🟡':'🟢';
     return`<tr class="inv-summary-row${x.low?' low-row':''}" onclick="toggleInvEdit('ins','${x.idx}',this)">
       <td><div class="inv-name-main">${x.n}</div></td>
-      <td style="text-align:center;color:var(--green);font-weight:600">${fmtQty(x.e)}<div style="font-size:.65rem;color:var(--gray)">${x.baseUnit}</div></td>
-      <td style="text-align:center;color:var(--red);font-weight:600">${fmtQty(x.s)}<div style="font-size:.65rem;color:var(--gray)">${x.baseUnit}</div></td>
-      <td style="text-align:center"><span class="inv-stock-val ${stockCls}">${fmtQty(x.stock)}</span><div style="font-size:.65rem;color:var(--gray)">${x.baseUnit}${x.min>0?` · min ${fmtQty(x.min)}`:''}</div></td>
+      <td style="text-align:center;color:var(--green);font-weight:600">${fmtQty(x.e)}<div style="font-size:.65rem;color:var(--gray)">${escHtml(x.unitLabel)}</div></td>
+      <td style="text-align:center;color:var(--red);font-weight:600">${fmtQty(x.s)}<div style="font-size:.65rem;color:var(--gray)">${escHtml(x.unitLabel)}</div></td>
+      <td style="text-align:center"><span class="inv-stock-val ${stockCls}">${fmtQty(x.stock)}</span><div style="font-size:.65rem;color:var(--gray)">${escHtml(x.unitLabel)}${x.min>0?` · min ${fmtQty(x.min)}`:''}</div></td>
       <td>${statusIcon} ${x.low?'<b style="color:var(--red);font-size:.75rem">Bajo mínimo</b>':x.mid?'<span style="color:var(--gold);font-size:.75rem">Por reponer</span>':'<span style="color:var(--green);font-size:.75rem">OK</span>'}
         ${pct!==null?`<div class="inv-bar-sm"><div class="inv-bar-sm-fill" style="width:${pct}%;background:${barColor}"></div></div>`:''}
       </td>
@@ -2214,32 +2188,6 @@ function _renderInvIns(){
           <div class="fg"><label>Stock Inicial</label><input type="number" class="inv-mini-input inv-si" value="${x.inv.si||0}" min="0"></div>
           <div class="fg"><label>Ajuste (±)</label><input type="number" class="inv-mini-input inv-aj" value="${x.inv.aj||0}"></div>
           <div class="fg"><label>Mínimo</label><input type="number" class="inv-mini-input inv-mn" value="${x.min}" min="0"></div>
-          <button class="btn bp bsm" style="white-space:nowrap;align-self:flex-end" onclick="saveInvFromPanel(this)">💾 Guardar</button>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-function _renderInvProd(){
-  const q=(document.getElementById('inv-prod-search')||{}).value||'';
-  const arr=_sortedProd(q);
-  const tb=document.getElementById('inv-prod-tbody');
-  if(!arr.length){tb.innerHTML=`<tr><td colspan="5" class="empty">Sin resultados</td></tr>`;return}
-  tb.innerHTML=arr.map(x=>{
-    const stockCls=x.low?'inv-stock-low':'inv-stock-ok';
-    return`<tr class="inv-summary-row${x.low?' low-row':''}" onclick="toggleInvEdit('prod','${x.idx}',this)">
-      <td><div class="inv-name-main">${x.n}</div></td>
-      <td style="text-align:center;color:var(--green);font-weight:600">${fmtQty(x.producido)}<div style="font-size:.65rem;color:var(--gray)">${x.baseUnit}</div></td>
-      <td style="text-align:center;color:var(--red);font-weight:600">${fmtQty(x.despachado)}<div style="font-size:.65rem;color:var(--gray)">${x.baseUnit}</div></td>
-      <td style="text-align:center"><span class="inv-stock-val ${stockCls}">${fmtQty(x.stock)}</span><div style="font-size:.65rem;color:var(--gray)">${x.baseUnit}</div></td>
-      <td><span class="badge ${x.t==='Pan'?'bpan':'bpast'}">${x.t}</span></td>
-    </tr>
-    <tr class="inv-edit-panel" id="inv-edit-prod-${x.idx}">
-      <td colspan="5">
-        <div class="inv-edit-inner" data-rowtype="prod" data-rowidx="${x.idx}">
-          <div class="fg"><label>Stock Inicial</label><input type="number" class="inv-mini-input inv-si" value="${x.inv.si||0}" min="0"></div>
-          <div class="fg"><label>Ajuste (±)</label><input type="number" class="inv-mini-input inv-aj" value="${x.inv.aj||0}"></div>
           <button class="btn bp bsm" style="white-space:nowrap;align-self:flex-end" onclick="saveInvFromPanel(this)">💾 Guardar</button>
         </div>
       </td>
@@ -2265,7 +2213,6 @@ function toggleInvEdit(tipo,idx,row){
 
 function filterInv(tipo){
   if(tipo==='ins') _renderInvIns();
-  else _renderInvProd();
 }
 
 function sortInv(tipo,mode){
@@ -2274,11 +2221,6 @@ function sortInv(tipo,mode){
     document.getElementById('inv-ins-sort-stock').classList.toggle('active',mode==='stock');
     document.getElementById('inv-ins-sort-az').classList.toggle('active',mode==='az');
     _renderInvIns();
-  } else {
-    _invProdSort=mode;
-    document.getElementById('inv-prod-sort-stock').classList.toggle('active',mode==='stock');
-    document.getElementById('inv-prod-sort-az').classList.toggle('active',mode==='az');
-    _renderInvProd();
   }
 }
 
