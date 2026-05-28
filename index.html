@@ -2892,6 +2892,11 @@ window.addEventListener('load', ()=>{
     widget.style.cursor='grab';
     if(!moved){
       if(widget.classList.contains('excited'))return;
+      const rect=widget.getBoundingClientRect();
+      const extra=Math.round((2.1-1)*160);
+      const originH=rect.left>=extra?'right':'left';
+      const originV=rect.top>=extra?'bottom':'top';
+      widget.style.transformOrigin=originH+' '+originV;
       video.currentTime=0;
       video.play().catch(()=>{});
       widget.classList.add('excited');
@@ -2900,7 +2905,7 @@ window.addEventListener('load', ()=>{
 
   // Al terminar la animación, volver al primer frame
   video.addEventListener('ended',()=>{video.currentTime=0;video.pause();});
-  widget.addEventListener('animationend',()=>{widget.classList.remove('excited');});
+  widget.addEventListener('animationend',()=>{widget.classList.remove('excited');widget.style.transformOrigin='';});
 
   // Mouse
   widget.addEventListener('mousedown',e=>{e.preventDefault();startDrag(e.clientX,e.clientY);});
