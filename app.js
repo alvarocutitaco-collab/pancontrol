@@ -20,6 +20,24 @@ async function doLogin(){
   currentRole=role;
   sessionStorage.setItem('pc_role',role);
   document.getElementById('login-overlay').style.display='none';
+  if(role==='admin'){
+    const overlay=document.getElementById('intro-overlay');
+    const video=document.getElementById('intro-video');
+    overlay.classList.add('active');
+    video.currentTime=0;
+    video.play().catch(()=>launchApp(role));
+    video.addEventListener('ended',()=>{
+      overlay.classList.add('fade-out');
+      overlay.addEventListener('animationend',()=>{
+        overlay.classList.remove('active','fade-out');
+        launchApp(role);
+      },{once:true});
+    },{once:true});
+  }else{
+    launchApp(role);
+  }
+}
+function launchApp(role){
   applyRole(role);
   init();
 }

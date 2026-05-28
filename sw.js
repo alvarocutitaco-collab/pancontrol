@@ -1,5 +1,5 @@
-// PanControl Service Worker v1.7
-const CACHE_NAME = 'pancontrol-v1.7';
+// PanControl Service Worker v1.8
+const CACHE_NAME = 'pancontrol-v1.8';
 
 // Archivos a cachear para uso offline
 const PRECACHE_URLS = [
@@ -10,6 +10,7 @@ const PRECACHE_URLS = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
+  './intro.mp4',
   // CDN externos — se cachean en primer uso
 ];
 

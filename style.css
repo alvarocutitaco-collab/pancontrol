@@ -509,6 +509,25 @@ body.viewer-mode .cat-add-row{display:none!important}
 /* Widget Doraemon: oculto por defecto (incluye pantalla de login); solo visible para admin */
 body.admin-mode #doraemon-widget{display:block}
 
+/* ── Intro splash (solo admin) ── */
+#intro-overlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:20000;
+  background:#3D1A06;
+  align-items:center;
+  justify-content:center;
+}
+#intro-overlay.active{display:flex}
+#intro-overlay.fade-out{animation:introFadeOut .6s ease-out forwards}
+@keyframes introFadeOut{to{opacity:0}}
+#intro-video{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+}
+
 /* ════════════════════════════════════════════
    DASHBOARD ESPECÍFICO
 ════════════════════════════════════════════ */
