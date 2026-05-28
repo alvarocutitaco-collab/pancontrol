@@ -1394,6 +1394,13 @@ function getPracticalUnitLabel(key,name){
   const units=getCatalogUnits(key,name);
   return units.length?units.join(', '):getBaseUnit(key,name);
 }
+function getPrimaryPractical(key,name){
+  const units=getCatalogUnits(key,name);
+  const unit=units[0]||getBaseUnit(key,name);
+  const factor=getEquivFactor(key,name,unit);
+  return{unit,factor:factor>0?factor:1};
+}
+function toDispQty(baseQty,factor){return factor!==1?Math.round(baseQty/factor*1000)/1000:Math.round(baseQty*1000)/1000}
 function setCatalogUnits(key,name,value){
   if(!cats.unidades)cats.unidades={insumos:{},panes:{},pasteles:{}};
   if(!cats.unidades[key])cats.unidades[key]={};
@@ -2234,7 +2241,8 @@ async function renderInv(){
     const inv=getInv('ins_'+n);
     const stock=(inv.si||0)+e-s+(inv.aj||0);
     const min=inv.min||0;
-    return{idx:i,n,e,s,stock,min,inv,baseUnit:getBaseUnit('insumos',n),unitLabel:getPracticalUnitLabel('insumos',n),low:min>0&&stock<=min,mid:min>0&&stock>min&&stock<=min*1.5};
+    const pp=getPrimaryPractical('insumos',n);
+    return{idx:i,n,e,s,stock,min,inv,baseUnit:getBaseUnit('insumos',n),unitLabel:getPracticalUnitLabel('insumos',n),primaryUnit:pp.unit,primaryFactor:pp.factor,eDisp:toDispQty(e,pp.factor),sDisp:toDispQty(s,pp.factor),stockDisp:toDispQty(stock,pp.factor),minDisp:toDispQty(min,pp.factor),low:min>0&&stock<=min,mid:min>0&&stock>min&&stock<=min*1.5};
   });
 
   // Badge de alertas
@@ -2265,19 +2273,19 @@ function _renderInvIns(){
     const statusIcon=x.low?'🔴':x.mid?'🟡':'🟢';
     return`<tr class="inv-summary-row${x.low?' low-row':''}" onclick="toggleInvEdit('ins','${x.idx}',this)">
       <td><div class="inv-name-main">${x.n}</div></td>
-      <td style="text-align:center;color:var(--green);font-weight:600">${fmtQty(x.e)}<div style="font-size:.65rem;color:var(--gray)">${escHtml(x.unitLabel)}</div></td>
-      <td style="text-align:center;color:var(--red);font-weight:600">${fmtQty(x.s)}<div style="font-size:.65rem;color:var(--gray)">${escHtml(x.unitLabel)}</div></td>
-      <td style="text-align:center"><span class="inv-stock-val ${stockCls}">${fmtQty(x.stock)}</span><div style="font-size:.65rem;color:var(--gray)">${escHtml(x.unitLabel)}${x.min>0?` · min ${fmtQty(x.min)}`:''}</div></td>
+      <td style="text-align:center;color:var(--green);font-weight:600">${fmtQty(x.eDisp)}<div style="font-size:.65rem;color:var(--gray)">${escHtml(x.primaryUnit)}</div></td>
+      <td style="text-align:center;color:var(--red);font-weight:600">${fmtQty(x.sDisp)}<div style="font-size:.65rem;color:var(--gray)">${escHtml(x.primaryUnit)}</div></td>
+      <td style="text-align:center"><span class="inv-stock-val ${stockCls}">${fmtQty(x.stockDisp)}</span><div style="font-size:.65rem;color:var(--gray)">${escHtml(x.primaryUnit)}${x.min>0?` · min ${fmtQty(x.minDisp)}`:''}</div></td>
       <td>${statusIcon} ${x.low?'<b style="color:var(--red);font-size:.75rem">Bajo mínimo</b>':x.mid?'<span style="color:var(--gold);font-size:.75rem">Por reponer</span>':'<span style="color:var(--green);font-size:.75rem">OK</span>'}
         ${pct!==null?`<div class="inv-bar-sm"><div class="inv-bar-sm-fill" style="width:${pct}%;background:${barColor}"></div></div>`:''}
       </td>
     </tr>
     <tr class="inv-edit-panel" id="inv-edit-ins-${x.idx}">
       <td colspan="5">
-        <div class="inv-edit-inner" data-rowtype="ins" data-rowidx="${x.idx}">
-          <div class="fg"><label>Stock Inicial</label><input type="number" class="inv-mini-input inv-si" value="${x.inv.si||0}" min="0"></div>
-          <div class="fg"><label>Ajuste (±)</label><input type="number" class="inv-mini-input inv-aj" value="${x.inv.aj||0}"></div>
-          <div class="fg"><label>Mínimo</label><input type="number" class="inv-mini-input inv-mn" value="${x.min}" min="0"></div>
+        <div class="inv-edit-inner" data-rowtype="ins" data-rowidx="${x.idx}" data-factor="${x.primaryFactor}">
+          <div class="fg"><label>Stock Inicial (${escHtml(x.primaryUnit)})</label><input type="number" class="inv-mini-input inv-si" value="${fmtQty(toDispQty(x.inv.si||0,x.primaryFactor))}" min="0" step="any"></div>
+          <div class="fg"><label>Ajuste ± (${escHtml(x.primaryUnit)})</label><input type="number" class="inv-mini-input inv-aj" value="${fmtQty(toDispQty(x.inv.aj||0,x.primaryFactor))}" step="any"></div>
+          <div class="fg"><label>Mínimo (${escHtml(x.primaryUnit)})</label><input type="number" class="inv-mini-input inv-mn" value="${fmtQty(toDispQty(x.min,x.primaryFactor))}" min="0" step="any"></div>
           <button class="btn bp bsm" style="white-space:nowrap;align-self:flex-end" onclick="saveInvFromPanel(this)">💾 Guardar</button>
         </div>
       </td>
@@ -2318,13 +2326,15 @@ async function saveInvFromPanel(btn){
   const inner=btn.closest('[data-rowtype]');
   const tipo=inner.dataset.rowtype;const idx=parseInt(inner.dataset.rowidx);
   const inputs=inner.querySelectorAll('input[type="number"]');
-  const si=parseFloat(inputs[0]?.value)||0;
-  const aj=parseFloat(inputs[1]?.value)||0;
-  const mn=tipo==='ins'?(parseFloat(inputs[2]?.value)||0):undefined;
+  let si=parseFloat(inputs[0]?.value)||0;
+  let aj=parseFloat(inputs[1]?.value)||0;
+  let mn=tipo==='ins'?(parseFloat(inputs[2]?.value)||0):undefined;
   let key,n;
   if(tipo==='ins'){n=cats.insumos[idx];key='ins_'+n;}
   else{const all=[...cats.panes,...cats.pasteles];n=all[idx];key='prod_'+n;}
   if(!n){toast('❌ Error identificando ítem','var(--red)');return}
+  // Convertir de unidades prácticas a unidad base para almacenamiento
+  if(tipo==='ins'){const pp=getPrimaryPractical('insumos',n);si=Math.round(si*pp.factor*1000)/1000;aj=Math.round(aj*pp.factor*1000)/1000;mn=Math.round((mn||0)*pp.factor*1000)/1000;}
   const rows=await dbAll('inventario');const ex=rows.find(r=>r.key===key);
   const data=tipo==='ins'?{key,si,aj,min:mn}:{key,si,aj};
   const merged={...(ex||{}),key,...data};const savedAt=Date.now();const mergedTS={...merged,_savedAt:savedAt};
@@ -2797,6 +2807,92 @@ window.addEventListener('load', ()=>{
     btn.style.display = 'none';
   }
 });
+</script>
+
+<!-- Doraemon flotante -->
+<div id="doraemon-widget">
+  <video id="doraemon-video" src="doraemon.webm" preload="auto" playsinline></video>
+</div>
+<style>
+#doraemon-widget{
+  position:fixed;
+  bottom:90px;
+  right:18px;
+  width:80px;
+  height:80px;
+  z-index:99999;
+  cursor:grab;
+  user-select:none;
+  touch-action:none;
+  filter:drop-shadow(0 4px 10px rgba(0,0,0,.35));
+  transition:filter .15s;
+}
+#doraemon-widget:active{cursor:grabbing;filter:drop-shadow(0 6px 16px rgba(0,0,0,.45));}
+#doraemon-video{
+  width:100%;
+  height:100%;
+  display:block;
+  pointer-events:none;
+}
+</style>
+<script>
+(function(){
+  const widget=document.getElementById('doraemon-widget');
+  const video=document.getElementById('doraemon-video');
+  let dragging=false,moved=false;
+  let startX=0,startY=0,origLeft=0,origTop=0;
+
+  function getPos(){
+    const r=widget.getBoundingClientRect();
+    return{left:r.left,top:r.top};
+  }
+
+  function startDrag(cx,cy){
+    dragging=true;moved=false;
+    const p=getPos();
+    origLeft=p.left;origTop=p.top;
+    startX=cx;startY=cy;
+    widget.style.right='auto';widget.style.bottom='auto';
+    widget.style.left=origLeft+'px';widget.style.top=origTop+'px';
+    widget.style.cursor='grabbing';
+  }
+
+  function onMove(cx,cy){
+    if(!dragging)return;
+    const dx=cx-startX,dy=cy-startY;
+    if(Math.abs(dx)>4||Math.abs(dy)>4)moved=true;
+    if(moved){
+      let nl=origLeft+dx,nt=origTop+dy;
+      nl=Math.max(0,Math.min(window.innerWidth-widget.offsetWidth,nl));
+      nt=Math.max(0,Math.min(window.innerHeight-widget.offsetHeight,nt));
+      widget.style.left=nl+'px';widget.style.top=nt+'px';
+    }
+  }
+
+  function endDrag(){
+    if(!dragging)return;
+    dragging=false;
+    widget.style.cursor='grab';
+    if(!moved){
+      // fue un clic: reproducir animación desde el inicio
+      video.currentTime=0;
+      video.play().catch(()=>{});
+    }
+  }
+
+  // Al terminar la animación, volver al primer frame
+  video.addEventListener('ended',()=>{video.currentTime=0;video.pause();});
+
+  // Mouse
+  widget.addEventListener('mousedown',e=>{e.preventDefault();startDrag(e.clientX,e.clientY);});
+  document.addEventListener('mousemove',e=>{onMove(e.clientX,e.clientY);});
+  document.addEventListener('mouseup',()=>{endDrag();});
+
+  // Touch
+  widget.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];startDrag(t.clientX,t.clientY);},{passive:false});
+  document.addEventListener('touchmove',e=>{if(dragging){e.preventDefault();const t=e.touches[0];onMove(t.clientX,t.clientY);}},{passive:false});
+  document.addEventListener('touchend',()=>{endDrag();});
+})();
 </script>
 </body>
 </html>
