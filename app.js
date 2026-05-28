@@ -22,14 +22,17 @@ async function doLogin(){
   document.getElementById('login-overlay').style.display='none';
   if(role==='admin'){
     const overlay=document.getElementById('intro-overlay');
+    const video=document.getElementById('intro-video');
     overlay.classList.add('active');
-    setTimeout(()=>{
+    video.currentTime=0;
+    video.play().catch(()=>launchApp(role));
+    video.addEventListener('ended',()=>{
       overlay.classList.add('fade-out');
       overlay.addEventListener('animationend',()=>{
         overlay.classList.remove('active','fade-out');
         launchApp(role);
       },{once:true});
-    },3200);
+    },{once:true});
   }else{
     launchApp(role);
   }
