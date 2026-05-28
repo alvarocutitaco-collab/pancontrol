@@ -2808,5 +2808,91 @@ window.addEventListener('load', ()=>{
   }
 });
 </script>
+
+<!-- Doraemon flotante -->
+<div id="doraemon-widget">
+  <video id="doraemon-video" src="doraemon.webm" preload="auto" playsinline></video>
+</div>
+<style>
+#doraemon-widget{
+  position:fixed;
+  bottom:90px;
+  right:18px;
+  width:80px;
+  height:80px;
+  z-index:99999;
+  cursor:grab;
+  user-select:none;
+  touch-action:none;
+  filter:drop-shadow(0 4px 10px rgba(0,0,0,.35));
+  transition:filter .15s;
+}
+#doraemon-widget:active{cursor:grabbing;filter:drop-shadow(0 6px 16px rgba(0,0,0,.45));}
+#doraemon-video{
+  width:100%;
+  height:100%;
+  display:block;
+  pointer-events:none;
+}
+</style>
+<script>
+(function(){
+  const widget=document.getElementById('doraemon-widget');
+  const video=document.getElementById('doraemon-video');
+  let dragging=false,moved=false;
+  let startX=0,startY=0,origLeft=0,origTop=0;
+
+  function getPos(){
+    const r=widget.getBoundingClientRect();
+    return{left:r.left,top:r.top};
+  }
+
+  function startDrag(cx,cy){
+    dragging=true;moved=false;
+    const p=getPos();
+    origLeft=p.left;origTop=p.top;
+    startX=cx;startY=cy;
+    widget.style.right='auto';widget.style.bottom='auto';
+    widget.style.left=origLeft+'px';widget.style.top=origTop+'px';
+    widget.style.cursor='grabbing';
+  }
+
+  function onMove(cx,cy){
+    if(!dragging)return;
+    const dx=cx-startX,dy=cy-startY;
+    if(Math.abs(dx)>4||Math.abs(dy)>4)moved=true;
+    if(moved){
+      let nl=origLeft+dx,nt=origTop+dy;
+      nl=Math.max(0,Math.min(window.innerWidth-widget.offsetWidth,nl));
+      nt=Math.max(0,Math.min(window.innerHeight-widget.offsetHeight,nt));
+      widget.style.left=nl+'px';widget.style.top=nt+'px';
+    }
+  }
+
+  function endDrag(){
+    if(!dragging)return;
+    dragging=false;
+    widget.style.cursor='grab';
+    if(!moved){
+      // fue un clic: reproducir animación desde el inicio
+      video.currentTime=0;
+      video.play().catch(()=>{});
+    }
+  }
+
+  // Al terminar la animación, volver al primer frame
+  video.addEventListener('ended',()=>{video.currentTime=0;video.pause();});
+
+  // Mouse
+  widget.addEventListener('mousedown',e=>{e.preventDefault();startDrag(e.clientX,e.clientY);});
+  document.addEventListener('mousemove',e=>{onMove(e.clientX,e.clientY);});
+  document.addEventListener('mouseup',()=>{endDrag();});
+
+  // Touch
+  widget.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];startDrag(t.clientX,t.clientY);},{passive:false});
+  document.addEventListener('touchmove',e=>{if(dragging){e.preventDefault();const t=e.touches[0];onMove(t.clientX,t.clientY);}},{passive:false});
+  document.addEventListener('touchend',()=>{endDrag();});
+})();
+</script>
 </body>
 </html>
