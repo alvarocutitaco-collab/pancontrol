@@ -515,7 +515,7 @@ body.admin-mode #doraemon-widget{display:block}
   position:fixed;
   inset:0;
   z-index:20000;
-  background:#3D1A06;
+  background:#fff;
   align-items:center;
   justify-content:center;
 }
