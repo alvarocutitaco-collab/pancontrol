@@ -1,12 +1,21 @@
 // ════════════════════════════════════════════
 // ROLES Y LOGIN
 // ════════════════════════════════════════════
-const ROLES={'mari_ing':'admin','planta_123':'viewer'};
+const ROLES={
+  '428e3c4c188f8d0b25e64ebd2db915d93d6b6617c1801727c779a39ec8895dc3':'admin',
+  'ddc87131708883232f83b9ca7c09f7c89b157a37160dc7218495b32d633c5469':'viewer'
+};
 let currentRole=null;
 
-function doLogin(){
+async function sha256(text){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function doLogin(){
   const pass=document.getElementById('login-pass').value;
-  const role=ROLES[pass];
+  const hash=await sha256(pass);
+  const role=ROLES[hash];
   if(!role){document.getElementById('login-err').textContent='❌ Contraseña incorrecta';return}
   currentRole=role;
   sessionStorage.setItem('pc_role',role);
