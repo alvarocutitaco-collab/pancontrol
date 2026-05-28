@@ -2858,16 +2858,23 @@ window.addEventListener('load', ()=>{
   const video=document.getElementById('doraemon-video');
   let dragging=false,moved=false;
   let startX=0,startY=0,origLeft=0,origTop=0;
-
-  function getPos(){
-    const r=widget.getBoundingClientRect();
-    return{left:r.left,top:r.top};
-  }
+  let storedLeft=null,storedTop=null;
 
   function startDrag(cx,cy){
     dragging=true;moved=false;
-    const p=getPos();
-    origLeft=p.left;origTop=p.top;
+    // Cancelar animación antes de leer posición para evitar que getBoundingClientRect()
+    // devuelva la posición transformada/animada y cause deriva acumulativa
+    if(widget.classList.contains('excited')){
+      widget.classList.remove('excited');
+      widget.style.transformOrigin='';
+    }
+    if(storedLeft!==null){
+      origLeft=storedLeft;origTop=storedTop;
+    } else {
+      const r=widget.getBoundingClientRect();
+      origLeft=r.left;origTop=r.top;
+      storedLeft=origLeft;storedTop=origTop;
+    }
     startX=cx;startY=cy;
     widget.style.right='auto';widget.style.bottom='auto';
     widget.style.left=origLeft+'px';widget.style.top=origTop+'px';
@@ -2882,6 +2889,7 @@ window.addEventListener('load', ()=>{
       let nl=origLeft+dx,nt=origTop+dy;
       nl=Math.max(0,Math.min(window.innerWidth-widget.offsetWidth,nl));
       nt=Math.max(0,Math.min(window.innerHeight-widget.offsetHeight,nt));
+      storedLeft=nl;storedTop=nt;
       widget.style.left=nl+'px';widget.style.top=nt+'px';
     }
   }
@@ -2892,10 +2900,9 @@ window.addEventListener('load', ()=>{
     widget.style.cursor='grab';
     if(!moved){
       if(widget.classList.contains('excited'))return;
-      const rect=widget.getBoundingClientRect();
-      const extra=Math.round((2.1-1)*160);
-      const originH=rect.left>=extra?'right':'left';
-      const originV=rect.top>=extra?'bottom':'top';
+      const r=widget.getBoundingClientRect();
+      const originH=(window.innerWidth-r.right)>=r.left?'left':'right';
+      const originV=(window.innerHeight-r.bottom)>=r.top?'top':'bottom';
       widget.style.transformOrigin=originH+' '+originV;
       video.currentTime=0;
       video.play().catch(()=>{});
