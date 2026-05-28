@@ -25,15 +25,14 @@ async function doLogin(){
     const video=document.getElementById('intro-video');
     overlay.classList.add('active');
     video.currentTime=0;
-    video.play().catch(()=>{});
-    setTimeout(()=>{
+    video.play().catch(()=>launchApp(role));
+    video.addEventListener('ended',()=>{
       overlay.classList.add('fade-out');
       overlay.addEventListener('animationend',()=>{
         overlay.classList.remove('active','fade-out');
-        video.pause();
         launchApp(role);
       },{once:true});
-    },3000);
+    },{once:true});
   }else{
     launchApp(role);
   }
