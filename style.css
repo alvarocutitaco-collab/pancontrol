@@ -507,7 +507,6 @@ body.viewer-mode .add-item-row{display:none!important}
 body.viewer-mode .cat-add-row{display:none!important}
 
 /* Widget Doraemon: oculto por defecto (incluye pantalla de login); solo visible para admin */
-#doraemon-widget{display:none}
 body.admin-mode #doraemon-widget{display:block}
 
 /* ════════════════════════════════════════════
@@ -688,6 +687,7 @@ body.admin-mode #doraemon-widget{display:block}
 .row-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
 
 #doraemon-widget{
+  display:none;
   position:fixed;
   bottom:90px;
   right:18px;
