@@ -2826,8 +2826,25 @@ window.addEventListener('load', ()=>{
   touch-action:none;
   filter:drop-shadow(0 4px 10px rgba(0,0,0,.35));
   transition:filter .15s;
+  transform-origin:bottom right;
 }
 #doraemon-widget:active{cursor:grabbing;filter:drop-shadow(0 6px 16px rgba(0,0,0,.45));}
+#doraemon-widget.excited{
+  animation:doraExcited 3s ease-in-out forwards;
+  filter:drop-shadow(0 10px 30px rgba(0,0,0,.6)) !important;
+  cursor:default !important;
+}
+@keyframes doraExcited{
+  0%  {transform:scale(1) rotate(0)}
+  8%  {transform:scale(2.1) rotate(-6deg)}
+  20% {transform:scale(2) rotate(4deg) translateY(-14px)}
+  35% {transform:scale(2.05) rotate(-5deg) translateY(-22px)}
+  50% {transform:scale(2) rotate(6deg) translateY(-12px)}
+  65% {transform:scale(2.1) rotate(-4deg) translateY(-20px)}
+  80% {transform:scale(2) rotate(3deg) translateY(-8px)}
+  90% {transform:scale(1.35) rotate(-1deg)}
+  100%{transform:scale(1) rotate(0)}
+}
 #doraemon-video{
   width:100%;
   height:100%;
@@ -2874,14 +2891,16 @@ window.addEventListener('load', ()=>{
     dragging=false;
     widget.style.cursor='grab';
     if(!moved){
-      // fue un clic: reproducir animación desde el inicio
+      if(widget.classList.contains('excited'))return;
       video.currentTime=0;
       video.play().catch(()=>{});
+      widget.classList.add('excited');
     }
   }
 
   // Al terminar la animación, volver al primer frame
   video.addEventListener('ended',()=>{video.currentTime=0;video.pause();});
+  widget.addEventListener('animationend',()=>{widget.classList.remove('excited');});
 
   // Mouse
   widget.addEventListener('mousedown',e=>{e.preventDefault();startDrag(e.clientX,e.clientY);});

@@ -1,5 +1,5 @@
-// PanControl Service Worker v1.5
-const CACHE_NAME = 'pancontrol-v1.5-reportes-admin';
+// PanControl Service Worker v1.6
+const CACHE_NAME = 'pancontrol-v1.6-doraemon-click';
 
 // Archivos a cachear para uso offline
 const PRECACHE_URLS = [
