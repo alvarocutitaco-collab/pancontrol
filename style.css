@@ -522,7 +522,7 @@ body.admin-mode #doraemon-widget{display:block}
 #intro-overlay.active{display:flex}
 #intro-overlay.fade-out{animation:introFadeOut .8s ease-out forwards}
 @keyframes introFadeOut{to{opacity:0}}
-#intro-video{
+#intro-img{
   width:70vmin;
   height:70vmin;
   object-fit:contain;
