@@ -27,6 +27,7 @@ function applyRole(role){
   const rp=document.getElementById('role-pill');
   if(role==='viewer'){
     document.body.classList.add('viewer-mode');
+    document.body.classList.remove('admin-mode');
     rp.className='viewer';rp.textContent='👁 Lectura';
     const sdr=document.getElementById('sd-role');
     if(sdr)sdr.innerHTML='<div style="padding:8px 18px;font-size:.72rem;color:rgba(255,255,255,.4)">👁 Solo lectura</div>';
@@ -35,6 +36,7 @@ function applyRole(role){
     if(catSub)catSub.textContent='Solo lectura — contacta al administrador para hacer cambios';
   }else{
     document.body.classList.remove('viewer-mode');
+    document.body.classList.add('admin-mode');
     rp.className='admin';rp.textContent='👤 Admin';
     const sdr=document.getElementById('sd-role');
     if(sdr)sdr.innerHTML='<div style="padding:8px 18px;font-size:.72rem;color:rgba(255,255,255,.4)">👤 Administrador</div>';
