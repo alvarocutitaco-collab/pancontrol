@@ -10,7 +10,7 @@ const PRECACHE_URLS = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
-  './intro.mp4',
+  './doraemon-intro.gif',
   // CDN externos — se cachean en primer uso
 ];
 
