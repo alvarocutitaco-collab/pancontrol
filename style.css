@@ -525,6 +525,8 @@ body.admin-mode #doraemon-widget{display:block}
 #intro-canvas{
   max-width:100%;
   max-height:100%;
+  width:auto;
+  height:auto;
 }
 
 /* ════════════════════════════════════════════
