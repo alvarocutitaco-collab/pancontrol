@@ -12,6 +12,52 @@ async function sha256(text){
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
+// Elimina fondo blanco del video en canvas frame a frame (BFS desde bordes)
+let _introRaf=null;
+function _startIntroCanvas(video){
+  const canvas=document.getElementById('intro-canvas');
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  function setup(){
+    canvas.width=Math.min(video.videoWidth||480,480);
+    canvas.height=Math.min(video.videoHeight||320,320);
+    function frame(){
+      if(video.paused||video.ended)return;
+      ctx.drawImage(video,0,0,canvas.width,canvas.height);
+      const W=canvas.width,H=canvas.height;
+      const img=ctx.getImageData(0,0,W,H);
+      const d=img.data;
+      const vis=new Uint8Array(W*H);
+      const stk=new Int32Array(W*H);
+      let top=0;
+      const T=230;
+      function push(i){
+        const di=i<<2;
+        if(!vis[i]&&d[di]>=T&&d[di+1]>=T&&d[di+2]>=T){vis[i]=1;stk[top++]=i;}
+      }
+      for(let x=0;x<W;x++){push(x);push((H-1)*W+x);}
+      for(let y=0;y<H;y++){push(y*W);push(y*W+W-1);}
+      while(top>0){
+        const i=stk[--top];
+        const di=i<<2;
+        d[di+3]=255-Math.min(d[di],d[di+1],d[di+2]);
+        const x=i%W,y=(i/W)|0;
+        if(x>0)push(i-1);
+        if(x<W-1)push(i+1);
+        if(y>0)push(i-W);
+        if(y<H-1)push(i+W);
+      }
+      ctx.putImageData(img,0,0);
+      _introRaf=requestAnimationFrame(frame);
+    }
+    _introRaf=requestAnimationFrame(frame);
+  }
+  if(video.readyState>=1)setup();
+  else video.addEventListener('loadedmetadata',setup,{once:true});
+}
+function _stopIntroCanvas(){
+  if(_introRaf){cancelAnimationFrame(_introRaf);_introRaf=null;}
+}
+
 async function doLogin(){
   const pass=document.getElementById('login-pass').value;
   const hash=await sha256(pass);
@@ -25,8 +71,10 @@ async function doLogin(){
     const video=document.getElementById('intro-video');
     overlay.classList.add('active');
     video.currentTime=0;
-    video.play().catch(()=>launchApp(role));
+    _startIntroCanvas(video);
+    video.play().catch(()=>{_stopIntroCanvas();launchApp(role);});
     video.addEventListener('ended',()=>{
+      _stopIntroCanvas();
       overlay.classList.add('fade-out');
       overlay.addEventListener('animationend',()=>{
         overlay.classList.remove('active','fade-out');
