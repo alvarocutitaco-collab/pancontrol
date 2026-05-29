@@ -30,23 +30,21 @@ function _startIntroCanvas(video){
       const stk=new Int32Array(W*H);
       let top=0;
       const T=235;
-      // Seed BFS 2px inset so the character never accidentally touches the seed row
-      const M=2;
       function push(i){
         const di=i<<2;
         if(!vis[i]&&d[di]>=T&&d[di+1]>=T&&d[di+2]>=T){vis[i]=1;stk[top++]=i;}
       }
-      for(let x=M;x<W-M;x++){push(M*W+x);push((H-1-M)*W+x);}
-      for(let y=M;y<H-M;y++){push(y*W+M);push(y*W+W-1-M);}
+      for(let x=0;x<W;x++){push(x);push((H-1)*W+x);}
+      for(let y=1;y<H-1;y++){push(y*W);push(y*W+W-1);}
       while(top>0){
         const i=stk[--top];
         const di=i<<2;
         d[di+3]=0;
         const x=i%W,y=(i/W)|0;
-        if(x>M)push(i-1);
-        if(x<W-1-M)push(i+1);
-        if(y>M)push(i-W);
-        if(y<H-1-M)push(i+W);
+        if(x>0)push(i-1);
+        if(x<W-1)push(i+1);
+        if(y>0)push(i-W);
+        if(y<H-1)push(i+W);
       }
       ctx.putImageData(img,0,0);
       _introRaf=requestAnimationFrame(frame);
