@@ -1089,6 +1089,11 @@ function updateProdEquiv(pre,key){
   if(sub&&!sub.value&&document.activeElement!==sub)sub.value=getBaseUnit(key,producto)||'unidad';
   calcProdBase(pre);
 }
+function calcLatasAuto(){
+  const latas=toNum(v('pp-pres-cant')),porLata=toNum(v('pp-por-lata'));
+  if(latas>0&&porLata>0){const cantEl=document.getElementById('pp-cant');if(cantEl)cantEl.value=latas*porLata;}
+  calcProdBase('pp');
+}
 function prodFactorFromInputs(pre){
   const pres=toNum(v(pre+'-pres-cant')),cant=toNum(v(pre+'-cant'));
   return pres>0&&cant>0?cant/pres:1;
@@ -1113,7 +1118,9 @@ function prodCantidadTeorica(rec){
   return (parseFloat(rec.cantidadPresentacion)||parseFloat(rec.cantidad)||0)*(parseFloat(rec.eqA)||1);
 }
 function prodCantidadTexto(r){
-  const pract=`${fmtQty(r.cantidadPresentacion||r.cantidad)} ${r.unidad||''}`;
+  const latasNum=fmtQty(r.cantidadPresentacion||r.cantidad);
+  const latasUnit=r.unidad||'';
+  const pract=r.porLata>0?`${latasNum} ${latasUnit} x${fmtQty(r.porLata)} uni`:`${latasNum} ${latasUnit}`;
   const unidadTeorica=r.unidadTeorica||(r.tipo==='pan'?'quintal':'lata');
   const teor=`${fmtQtyByUnit(prodCantidadTeorica(r),unidadTeorica)} ${unidadTeorica}`;
   const sub=`${fmtQty(r.cantidad)} ${r.unidadSub||r.unidadBase||getBaseUnit(r.tipo==='pastel'?'pasteles':'panes',r.producto)}`;
@@ -1129,9 +1136,11 @@ async function guardarProd(tipo){
   if(presCant<=0||teoCant<0||(tipo==='pan'&&teoCant<=0)){toast('⚠ Revisa cantidades de producción','var(--red)');return}
   const unidadBase=v(pre+'-sub-und')||getBaseUnit(key,v(pre+'-tipo'));
   const eqB=teoCant>0?cant/teoCant:0;
-  const data={tipo,fecha:v(pre+'-fecha')||hoy(),turno:v(pre+'-turno'),producto:v(pre+'-tipo'),unidad:v(pre+'-und'),cantidad:cant,cantidadPresentacion:presCant,unidadTeorica:v(pre+'-teo-und')||(tipo==='pan'?'lata':'bandeja'),cantidadTeorica:teoCant,unidadSub:unidadBase,factorBase:factor,unidadBase,eqA:teoCant,eqB,defectuosa:def,neto:cant-def,obs:v(pre+'-obs')};
+  const porLata=tipo==='pan'?toNum(v('pp-por-lata')):0;
+  const data={tipo,fecha:v(pre+'-fecha')||hoy(),turno:v(pre+'-turno'),producto:v(pre+'-tipo'),unidad:v(pre+'-und'),cantidad:cant,cantidadPresentacion:presCant,unidadTeorica:v(pre+'-teo-und')||(tipo==='pan'?'lata':'bandeja'),cantidadTeorica:teoCant,unidadSub:unidadBase,factorBase:factor,unidadBase,eqA:teoCant,eqB,defectuosa:def,neto:cant-def,obs:v(pre+'-obs'),...(porLata>0?{porLata}:{})};
   const id=await dbAdd('produccion',data);await cloudAdd('produccion',id,data);
   [pre+'-turno',pre+'-tipo',pre+'-und',pre+'-pres-cant',pre+'-teo-und',pre+'-eq-a',pre+'-sub-und',pre+'-cant',pre+'-def',pre+'-obs'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
+  const plEl=document.getElementById('pp-por-lata');if(plEl)plEl.value='';
   if(tipo==='pan')setPanFixedUnits();else setPastelFixedUnits();
   toast('✅ Producción registrada');renderProd();
 }
@@ -1335,6 +1344,7 @@ async function openEdit(store,id){
     {k:'fecha',l:'Fecha',t:'date'},{k:'turno',l:'Turno',t:'sel',opts:['Mañana','Tarde','Noche']},{k:'producto',l:'Producto',t:'text'},
     {k:'cantidad',l:'Unidades',t:'num'},
     {k:'cantidadPresentacion',l:'Latas',t:'num'},
+    {k:'porLata',l:'Uni/Lata (x)',t:'num'},
     {k:'eqA',l:'Quintales',t:'num'},
     {k:'defectuosa',l:'Cant. Defectuosa',t:'num'},{k:'obs',l:'Obs.',t:'text'}
   ];
