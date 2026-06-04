@@ -282,7 +282,7 @@
         <input type="hidden" id="pp-und" value="lata">
         <input type="hidden" id="pp-teo-und" value="quintal">
         <div class="fg"><label>Unidades</label><input type="number" id="pp-cant" min="0" step="0.01" placeholder="Total unidades finales"></div>
-        <div class="fg"><label>Latas</label><input type="number" id="pp-pres-cant" min="0" step="0.01" placeholder="Total latas" oninput="calcProdBase('pp')"></div>
+        <div class="fg"><label>Latas</label><div class="latas-wrap"><input type="number" id="pp-pres-cant" min="0" step="1" placeholder="Latas" oninput="calcLatasAuto()"><span class="latas-x">×</span><input type="number" id="pp-por-lata" min="0" step="1" placeholder="uni/lata" oninput="calcLatasAuto()"></div></div>
         <div class="fg"><label>Quintales</label><input type="text" id="pp-eq-a" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ej. 1/2, 2 3/4" onfocus="this.type='text';this.inputMode='text'" onclick="this.type='text';this.inputMode='text'" oninput="calcProdBase('pp')"></div>
         <div class="fg"><label>Cant. Defectuosa</label><input type="number" id="pp-def" min="0" placeholder="0"></div>
         <div class="fg fgrid one"><label>Observaciones</label><input type="text" id="pp-obs" placeholder="Opcional"></div>
