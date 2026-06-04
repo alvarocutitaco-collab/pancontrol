@@ -180,7 +180,7 @@ input,select,textarea{font-family:'DM Sans',sans-serif}
 /* ════════════════════════════════════════════
    FORMS
 ════════════════════════════════════════════ */
-.fg{display:flex;flex-direction:column;gap:5px}
+.fg{display:flex;flex-direction:column;gap:5px;min-width:0}
 .fg label{
   font-size:.68rem;font-weight:700;
   color:var(--brown2);text-transform:uppercase;letter-spacing:.07em;
