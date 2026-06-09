@@ -1178,7 +1178,7 @@ async function guardarSalidaProd(){
   const id=await dbAdd('salida_prod',data);await cloudAdd('salida_prod',id,data);
   ['sp-cat','sp-prod','sp-und','sp-cant','sp-dest','sp-encargado','sp-doc','sp-obs'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
   updateSalidaUnitSelect();
-  toast('✅ Salida registrada');renderSalidaProd();fillProdSelect();
+  toast('✅ Salida registrada');renderSalidaProd();renderInvProd();fillProdSelect();
 }
 async function renderSalidaProd(){
   const rows=await dbAll('salida_prod');
@@ -1296,6 +1296,51 @@ function sortInv(tipo,mode){
   }
 }
 
+// ── INVENTARIO DE PRODUCTOS ──
+let _invProdData=[], _invProdSort='stock';
+
+async function renderInvProd(){
+  fillEncargados();fillDestinos();
+  const[prod,sp,invR]=await Promise.all([dbAll('produccion'),dbAll('salida_prod'),dbAll('inventario')]);
+  const getInv=key=>{const r=invR.find(r=>r.key===key);return r||{key,si:0,aj:0}};
+  const allProds=[...cats.panes.map(n=>({n,key:'panes'})),...cats.pasteles.map(n=>({n,key:'pasteles'}))];
+  _invProdData=allProds.map((p,i)=>{
+    const e=prod.filter(r=>r.producto===p.n).reduce((s,r)=>s+(r.neto||0),0);
+    const s=sp.filter(r=>r.producto===p.n).reduce((s,r)=>s+prodOutBaseQty(r),0);
+    const inv=getInv('prod_'+p.n);
+    const stock=(inv.si||0)+e-s+(inv.aj||0);
+    const pp=getPrimaryPractical(p.key,p.n);
+    return{idx:i,n:p.n,catKey:p.key,e,s,stock,inv,primaryUnit:pp.unit,primaryFactor:pp.factor,eDisp:toDispQty(e,pp.factor),sDisp:toDispQty(s,pp.factor),stockDisp:toDispQty(stock,pp.factor)};
+  });
+  _renderInvProd();
+  renderSalidaProd();
+}
+
+function _renderInvProd(){
+  const tb=document.getElementById('inv-prod-tbody');
+  if(!tb)return;
+  let arr=[..._invProdData];
+  if(_invProdSort==='stock')arr.sort((a,b)=>a.stock-b.stock);
+  else arr.sort((a,b)=>a.n.localeCompare(b.n,'es'));
+  if(!arr.length){tb.innerHTML=`<tr><td colspan="4" class="empty">Sin productos en catálogo</td></tr>`;return}
+  tb.innerHTML=arr.map(x=>{
+    const stockCls=x.stock<=0?'inv-stock-low':'inv-stock-ok';
+    return`<tr>
+      <td><b>${x.n}</b><div style="font-size:.65rem;color:var(--gray)">${x.catKey==='panes'?'Panes':'Pasteles'}</div></td>
+      <td style="text-align:center;color:var(--green);font-weight:600">${fmtQty(x.eDisp)}<div style="font-size:.65rem;color:var(--gray)">${escHtml(x.primaryUnit)}</div></td>
+      <td style="text-align:center;color:var(--red);font-weight:600">${fmtQty(x.sDisp)}<div style="font-size:.65rem;color:var(--gray)">${escHtml(x.primaryUnit)}</div></td>
+      <td style="text-align:center"><span class="inv-stock-val ${stockCls}">${fmtQty(x.stockDisp)}</span><div style="font-size:.65rem;color:var(--gray)">${escHtml(x.primaryUnit)}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+function sortInvProd(mode){
+  _invProdSort=mode;
+  document.getElementById('inv-prod-sort-stock').classList.toggle('active',mode==='stock');
+  document.getElementById('inv-prod-sort-az').classList.toggle('active',mode==='az');
+  _renderInvProd();
+}
+
 async function saveInvFromPanel(btn){
   const inner=btn.closest('[data-rowtype]');
   const tipo=inner.dataset.rowtype;const idx=parseInt(inner.dataset.rowidx);
@@ -1309,6 +1354,7 @@ async function saveInvFromPanel(btn){
   if(!n){toast('❌ Error identificando ítem','var(--red)');return}
   // Convertir de unidades prácticas a unidad base para almacenamiento
   if(tipo==='ins'){const pp=getPrimaryPractical('insumos',n);si=Math.round(si*pp.factor*1000)/1000;aj=Math.round(aj*pp.factor*1000)/1000;mn=Math.round((mn||0)*pp.factor*1000)/1000;}
+  else if(tipo==='prod'){const catKey=cats.panes.includes(n)?'panes':'pasteles';const pp=getPrimaryPractical(catKey,n);si=Math.round(si*pp.factor*1000)/1000;aj=Math.round(aj*pp.factor*1000)/1000;}
   const rows=await dbAll('inventario');const ex=rows.find(r=>r.key===key);
   const data=tipo==='ins'?{key,si,aj,min:mn}:{key,si,aj};
   const merged={...(ex||{}),key,...data};const savedAt=Date.now();const mergedTS={...merged,_savedAt:savedAt};
