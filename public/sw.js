@@ -1,5 +1,5 @@
-// PanControl Service Worker v1.8
-const CACHE_NAME = 'pancontrol-v1.8';
+// PanControl Service Worker v2.0
+const CACHE_NAME = 'pancontrol-v2.0';
 
 // Archivos a cachear para uso offline
 const PRECACHE_URLS = [
@@ -10,6 +10,7 @@ const PRECACHE_URLS = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
+  './logo.png',
   './intro.mp4',
   // CDN externos — se cachean en primer uso
 ];
@@ -40,13 +41,20 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Firebase y APIs externas: siempre red (no cachear)
+  // Llamadas a nuestra propia API: siempre red, nunca servir JSON viejo desde
+  // cache. La app misma maneja qué hacer si falla (ver api() en app.js).
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // APIs/CDN externos (OCR, fuentes, xlsx): siempre red (no cachear)
   if (
-    url.hostname.includes('firebase') ||
     url.hostname.includes('google') ||
     url.hostname.includes('gstatic') ||
     url.hostname.includes('fonts') ||
-    url.hostname.includes('cdnjs')
+    url.hostname.includes('cdnjs') ||
+    url.hostname.includes('workers.dev')
   ) {
     event.respondWith(
       fetch(event.request).catch(() => new Response('', { status: 503 }))

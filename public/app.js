@@ -1,16 +1,7 @@
 // ════════════════════════════════════════════
-// ROLES Y LOGIN
+// ROLES Y LOGIN (el servidor valida la contraseña y guarda la sesión)
 // ════════════════════════════════════════════
-const ROLES={
-  '428e3c4c188f8d0b25e64ebd2db915d93d6b6617c1801727c779a39ec8895dc3':'admin',
-  'ddc87131708883232f83b9ca7c09f7c89b157a37160dc7218495b32d633c5469':'viewer'
-};
 let currentRole=null;
-
-async function sha256(text){
-  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
 
 // Elimina fondo blanco del video en canvas frame a frame (BFS desde bordes)
 let _introRaf=null;
@@ -60,11 +51,15 @@ function _stopIntroCanvas(){
 
 async function doLogin(){
   const pass=document.getElementById('login-pass').value;
-  const hash=await sha256(pass);
-  const role=ROLES[hash];
-  if(!role){document.getElementById('login-err').textContent='❌ Contraseña incorrecta';return}
+  const errEl=document.getElementById('login-err');
+  errEl.textContent='';
+  let role;
+  try{
+    const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pass})});
+    if(!res.ok){const body=await res.json().catch(()=>({}));errEl.textContent='❌ '+(body.error||'No se pudo iniciar sesión');return}
+    const data=await res.json();role=data.role;
+  }catch(e){errEl.textContent='❌ Sin conexión con el servidor';return}
   currentRole=role;
-  sessionStorage.setItem('pc_role',role);
   document.getElementById('login-overlay').style.display='none';
   if(role==='admin'){
     const overlay=document.getElementById('intro-overlay');
@@ -108,46 +103,83 @@ function applyRole(role){
     if(sdr)sdr.innerHTML='<div style="padding:8px 18px;font-size:.72rem;color:rgba(255,255,255,.4)">👤 Administrador</div>';
   }
 }
-(function(){
-  const saved=sessionStorage.getItem('pc_role');
-  if(saved&&Object.values(ROLES).includes(saved)){
-    currentRole=saved;
+async function cerrarSesion(){
+  try{await fetch('/api/logout',{method:'POST'});}catch(e){}
+  location.reload();
+}
+(async function(){
+  try{
+    const res=await fetch('/api/session');
+    if(!res.ok)return;
+    const data=await res.json();
+    currentRole=data.role;
     document.getElementById('login-overlay').style.display='none';
-    applyRole(saved);
-  }
+    applyRole(data.role);
+    init();
+  }catch(e){}
 })();
 
 // ════════════════════════════════════════════
-// FIREBASE
+// API — persistencia en el backend propio (una sola fuente de verdad,
+// sin sincronización dual con IndexedDB/Firebase)
 // ════════════════════════════════════════════
-const FB_CFG={
-  apiKey:"AIzaSyBxuFn5a414Y_H0-RgLxf0rrKrs8P94zNU",
-  authDomain:"dddnjj-76077.firebaseapp.com",
-  projectId:"dddnjj-76077",
-  storageBucket:"dddnjj-76077.firebasestorage.app",
-  messagingSenderId:"506184010572",
-  appId:"1:506184010572:web:e53419b617f90eb49c1de9"
-};
-let fsApp=null,fsDb=null,fsOnline=false;
-
 function setSyncUI(state,msg){
   ['sdot','sdot2'].forEach(id=>{const d=document.getElementById(id);if(d){d.className='sdot'+(state==='ok'?'':state==='off'?' off':' sync')}});
   ['sync-txt','sync-txt2'].forEach(id=>{const t=document.getElementById(id);if(t)t.textContent=msg});
 }
-async function initFirebase(){
-  try{
-    const {initializeApp}=await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
-    const {getFirestore,collection,addDoc,getDocs,doc,updateDoc,deleteDoc,setDoc,getDoc,onSnapshot}
-      =await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-    fsApp=initializeApp(FB_CFG);
-    fsDb=getFirestore(fsApp);
-    window._fs={collection,addDoc,getDocs,doc,updateDoc,deleteDoc,setDoc,getDoc,onSnapshot};
-    fsOnline=true;setSyncUI('ok','En línea ✓');
-    await syncFromCloud();
-    setupRealtimeListeners();
-  }catch(e){fsOnline=false;setSyncUI('off','Sin internet')}
+function updateConnUI(){
+  setSyncUI(navigator.onLine?'ok':'off',navigator.onLine?'En línea ✓':'Sin conexión');
 }
-let _listeners=[],_firstLoad={};
+
+// Cola de reintentos: si un guardado falla por falta de red, se guarda aquí
+// y se reintenta solo al volver la conexión, en vez de perder lo escrito.
+const PENDING_KEY='pc_pending_writes';
+function getPending(){try{return JSON.parse(localStorage.getItem(PENDING_KEY)||'[]')}catch(e){return[]}}
+function setPending(arr){try{localStorage.setItem(PENDING_KEY,JSON.stringify(arr))}catch(e){}}
+function queuePending(path,opts){const arr=getPending();arr.push({path,opts,ts:Date.now()});setPending(arr);}
+async function flushPending(){
+  if(!navigator.onLine)return;
+  const arr=getPending();
+  if(!arr.length)return;
+  setSyncUI('sync','Guardando pendientes...');
+  const remaining=[];
+  for(const item of arr){
+    try{await api(item.path,item.opts,{skipQueue:true});}
+    catch(e){remaining.push(item);}
+  }
+  setPending(remaining);
+  updateConnUI();
+  if(remaining.length<arr.length)refreshPage();
+  if(remaining.length)toast(`⚠ ${remaining.length} cambio(s) sin subir aún — se reintentará`,'var(--gold)');
+}
+window.addEventListener('online',flushPending);
+
+async function api(path,opts={},{skipQueue}={}){
+  const method=opts.method||'GET';
+  let res;
+  try{
+    res=await fetch(path,{
+      method,
+      credentials:'same-origin',
+      headers:opts.body?{'Content-Type':'application/json'}:undefined,
+      body:opts.body?JSON.stringify(opts.body):undefined
+    });
+  }catch(networkErr){
+    if(method!=='GET'&&!skipQueue){queuePending(path,opts);toast('⚠ Sin conexión — se guardará solo al volver la señal','var(--gold)');}
+    updateConnUI();
+    throw networkErr;
+  }
+  if(res.status===401){document.getElementById('login-overlay').style.display='flex';throw new Error('No autenticado')}
+  if(!res.ok){const body=await res.json().catch(()=>({}));throw new Error(body.error||('Error '+res.status))}
+  if(res.status===204)return null;
+  return res.json();
+}
+
+function dbAll(store){return api(`/api/store/${store}`)}
+function dbAdd(store,data){return api(`/api/store/${store}`,{method:'POST',body:data}).then(r=>r.id)}
+function dbPut(store,data){const{id,...rest}=data;return api(`/api/store/${store}/${id}`,{method:'PUT',body:rest})}
+function dbDel(store,id){return api(`/api/store/${store}/${id}`,{method:'DELETE'})}
+
 function refreshPage(){
   const active=document.querySelector('.page.active')?.id?.replace('page-','');
   if(active==='dashboard')renderDash();
@@ -155,85 +187,11 @@ function refreshPage(){
   else if(active==='produccion')renderProd();
   else if(active==='inventario')renderInv();
 }
-function setupRealtimeListeners(){
-  if(!fsOnline||!window._fs)return;
-  const{collection,onSnapshot}=window._fs;
-  const STORES=['entradas','salidas_ins','produccion','salida_prod'];
-  _listeners.forEach(u=>u());_listeners=[];_firstLoad={};
-  let debounce=null;
-  const triggerRefresh=()=>{clearTimeout(debounce);debounce=setTimeout(refreshPage,350)};
-  STORES.forEach(col=>{
-    _firstLoad[col]=true;
-    const unsub=onSnapshot(collection(fsDb,col),async snap=>{
-      const existing=await dbAll(col);const localIds=new Set(existing.map(r=>r.id));let changed=false;
-      for(const d of snap.docs){
-        const data=d.data();if(!data._localId)continue;
-        if(!localIds.has(data._localId)){const{_localId,_ts,...rest}=data;await new Promise(res=>{const tx=db.transaction(col,'readwrite');const req=tx.objectStore(col).add({...rest,id:_localId});req.onsuccess=res;req.onerror=res});changed=true;}
-        else{const local=existing.find(r=>r.id===data._localId);const{_localId,_ts,...cloudData}=data;if(JSON.stringify(cloudData)!==JSON.stringify(Object.fromEntries(Object.entries(local).filter(([k])=>k!=='id')))){await dbPut(col,{...cloudData,id:_localId});changed=true;}}
-      }
-      const cloudLocalIds=new Set(snap.docs.map(d=>d.data()._localId).filter(Boolean));
-      for(const local of existing){if(!cloudLocalIds.has(local.id)){await dbDel(col,local.id);changed=true;}}
-      if(_firstLoad[col]){_firstLoad[col]=false;if(changed)triggerRefresh();}else triggerRefresh();
-    });
-    _listeners.push(unsub);
-  });
-  const unsubCat=onSnapshot(window._fs.doc(fsDb,'config','catalogos'),async snap=>{
-    if(!snap.exists())return;const data=snap.data();
-    const newCats=normalizeCats({...data,insumos:data.insumos||DEF.insumos,panes:data.panes||DEF.panes,pasteles:data.pasteles||DEF.pasteles,encargados:data.encargados||cats.encargados||DEF.encargados,destinos:data.destinos||cats.destinos||DEF.destinos,baseUnits:data.baseUnits,equivalencias:data.equivalencias});
-    if(JSON.stringify(newCats)!==JSON.stringify(cats)){
-      cats=newCats;const rows=await dbAll('catalogos');const rec={...newCats};
-      if(rows.length){rec.id=rows[rows.length-1].id;await dbPut('catalogos',rec);}else await dbAdd('catalogos',rec);
-      fillSelects();renderCats();triggerRefresh();
-    }
-  });
-  _listeners.push(unsubCat);
-  const unsubInv=window._fs.onSnapshot(window._fs.collection(fsDb,'inventario'),async snap=>{
-    for(const d of snap.docs){
-      const cloudData=d.data();const key=d.id;const rows=await dbAll('inventario');const ex=rows.find(r=>r.key===key);
-      if(!ex)await dbAdd('inventario',{key,...cloudData});
-      else if(cloudData._savedAt&&ex._savedAt&&cloudData._savedAt>ex._savedAt)await dbPut('inventario',{...ex,...cloudData,key});
-    }
-  });
-  _listeners.push(unsubInv);
-}
-async function cloudAdd(col,localId,data){
-  if(!fsOnline)return;
-  try{const{collection,addDoc}=window._fs;await addDoc(collection(fsDb,col),{...data,_localId:localId,_ts:Date.now()});}catch(e){fsOnline=false;setSyncUI('off','Sin internet')}
-}
-async function cloudUpdate(col,localId,data){
-  if(!fsOnline)return;
-  try{const{collection,getDocs,doc,updateDoc}=window._fs;const snap=await getDocs(collection(fsDb,col));const found=snap.docs.find(d=>d.data()._localId===localId);if(found)await updateDoc(doc(fsDb,col,found.id),data);}catch(e){}
-}
-async function cloudDelete(col,localId){
-  if(!fsOnline)return;
-  try{const{collection,getDocs,doc,deleteDoc}=window._fs;const snap=await getDocs(collection(fsDb,col));const found=snap.docs.find(d=>d.data()._localId===localId);if(found)await deleteDoc(doc(fsDb,col,found.id));}catch(e){}
-}
-async function syncFromCloud(){
-  if(!fsOnline)return;setSyncUI('sync','Sincronizando...');
-  try{
-    const{collection,getDocs}=window._fs;const STORES=['entradas','salidas_ins','produccion','salida_prod'];
-    for(const col of STORES){
-      const snap=await getDocs(collection(fsDb,col));const existing=await dbAll(col);const localIds=new Set(existing.map(r=>r.id));
-      for(const d of snap.docs){const data=d.data();if(data._localId&&!localIds.has(data._localId)){const{_localId,_ts,...rest}=data;await new Promise((res)=>{const tx=db.transaction(col,'readwrite');const req=tx.objectStore(col).add({...rest,id:_localId});req.onsuccess=res;req.onerror=()=>res()});}}
-    }
-    const cfgSnap=await getDocs(collection(fsDb,'config'));
-    for(const d of cfgSnap.docs){
-      if(d.id==='catalogos'){const data=d.data();const catRows=await dbAll('catalogos');const rec=normalizeCats({insumos:data.insumos||DEF.insumos,panes:data.panes||DEF.panes,pasteles:data.pasteles||DEF.pasteles,encargados:data.encargados||cats.encargados||DEF.encargados,destinos:data.destinos||cats.destinos||DEF.destinos,unidades:data.unidades,baseUnits:data.baseUnits,equivalencias:data.equivalencias});
-        if(catRows.length){rec.id=catRows[catRows.length-1].id;await dbPut('catalogos',rec);}else await dbAdd('catalogos',rec);cats=rec;fillSelects();}
-    }
-    setSyncUI('ok','Sincronizado ✓');
-  }catch(e){setSyncUI('off','Error sync')}
-}
-async function cloudSaveCats(data){
-  if(!fsOnline)return;
-  try{const{doc,setDoc}=window._fs;await setDoc(doc(fsDb,'config','catalogos'),data,{merge:true});}catch(e){}
-}
 
 // ════════════════════════════════════════════
-// INDEXEDDB
+// UTILIDADES
 // ════════════════════════════════════════════
-const DB='PanControl2',VER=2;
-let db,cats={insumos:[],panes:[],pasteles:[]},editCtx=null,catFilters={insumos:'',panes:'',pasteles:''};
+let cats={insumos:[],panes:[],pasteles:[]},editCtx=null,catFilters={insumos:'',panes:'',pasteles:''};
 const DEF={
   encargados:[],destinos:[],
   insumos:Array.from({length:60},(_,i)=>["Harina de trigo","Levadura","Sal","Azúcar","Manteca / mantequilla","Huevos","Leche","Aceite vegetal","Harina especial (pastelería)","Crema pastelera","Azúcar en polvo","Cacao en polvo","Vainilla","Bicarbonato","Polvo de hornear","Colorante alimentario"][i]||`Insumo ${i+1}`),
@@ -457,9 +415,9 @@ function updateInsumoLineUnit(select){
   updateInsumoEquiv(row);
 }
 function catalogUnitInput(key,name){
-  if(key==='insumos'||key==='panes'||key==='pasteles')return `<div class="cat-base-wrap"><span class="cat-mini-label">Unidad práctica</span><input type="text" list="unit-options" value="${escAttr(getCatalogUnits(key,name).join(', '))}" data-cat-unit="${key}" data-unit-name="${escAttr(name)}" onchange="setCatalogUnits('${key}',this.dataset.unitName,this.value)" placeholder="${key==='insumos'?'tarro, porongo, caja':'quintal, bandeja, caja'}"></div>`;
-  return `<div class="cat-base-wrap"><span class="cat-mini-label">Base stock</span><input type="text" list="unit-options" value="${escAttr(getBaseUnit(key,name))}" data-cat-base="${key}" data-unit-name="${escAttr(name)}" onchange="setBaseUnit('${key}',this.dataset.unitName,this.value)" placeholder="kg, litro, unidad"></div>
-    <div class="cat-equiv-wrap"><span class="cat-mini-label">Equivalencias: nombre | unidad | factor a base</span><textarea data-cat-equiv="${key}" data-unit-name="${escAttr(name)}" onchange="setEquivalencias('${key}',this.dataset.unitName,this.value)" placeholder="saco 15 kg | saco | 15">${escHtml(equivsToText(getEquivalencias(key,name)))}</textarea></div>`;
+  if(key==='insumos'||key==='panes'||key==='pasteles')return `<div class="cat-base-wrap"><span class="cat-mini-label">Unidad práctica</span><input type="text" list="unit-options" value="${escAttr(getCatalogUnits(key,name).join(', '))}" data-cat-unit="${key}" data-unit-name="${escAttr(name)}" onchange="setCatalogUnits('${key}',this.dataset.unitName,this.value);autoSaveCatalogos('✅ Unidad guardada')" placeholder="${key==='insumos'?'tarro, porongo, caja':'quintal, bandeja, caja'}"></div>`;
+  return `<div class="cat-base-wrap"><span class="cat-mini-label">Base stock</span><input type="text" list="unit-options" value="${escAttr(getBaseUnit(key,name))}" data-cat-base="${key}" data-unit-name="${escAttr(name)}" onchange="setBaseUnit('${key}',this.dataset.unitName,this.value);autoSaveCatalogos('✅ Unidad guardada')" placeholder="kg, litro, unidad"></div>
+    <div class="cat-equiv-wrap"><span class="cat-mini-label">Equivalencias: nombre | unidad | factor a base</span><textarea data-cat-equiv="${key}" data-unit-name="${escAttr(name)}" onchange="setEquivalencias('${key}',this.dataset.unitName,this.value);autoSaveCatalogos('✅ Equivalencias guardadas')" placeholder="saco 15 kg | saco | 15">${escHtml(equivsToText(getEquivalencias(key,name)))}</textarea></div>`;
 }
 function getEquivFactor(key,name,unidad){
   const eq=getEquivalencias(key,name).find(e=>e.nombre===unidad||e.unidad===unidad);
@@ -480,18 +438,6 @@ function prodOutBaseQty(rec){
   const key=rec.categoria==='Pasteles'?'pasteles':'panes';
   return (parseFloat(rec.cantidad)||0)*getEquivFactor(key,rec.producto,rec.unidad);
 }
-function openDB(){
-  return new Promise((res,rej)=>{
-    const r=indexedDB.open(DB,VER);
-    r.onupgradeneeded=e=>{const d=e.target.result;['entradas','salidas_ins','produccion','salida_prod','catalogos','inventario'].forEach(s=>{if(!d.objectStoreNames.contains(s))d.createObjectStore(s,{keyPath:'id',autoIncrement:true})})};
-    r.onsuccess=e=>{db=e.target.result;res()};r.onerror=rej;
-  });
-}
-function dbAll(s){return new Promise((res,rej)=>{const t=db.transaction(s,'readonly'),r=t.objectStore(s).getAll();r.onsuccess=()=>res(r.result);r.onerror=rej})}
-function dbAdd(s,d){return new Promise((res,rej)=>{const t=db.transaction(s,'readwrite'),r=t.objectStore(s).add(d);r.onsuccess=()=>res(r.result);r.onerror=rej})}
-function dbPut(s,d){return new Promise((res,rej)=>{const t=db.transaction(s,'readwrite'),r=t.objectStore(s).put(d);r.onsuccess=()=>res();r.onerror=rej})}
-function dbDel(s,id){return new Promise((res,rej)=>{const t=db.transaction(s,'readwrite');t.objectStore(s).delete(id);t.oncomplete=res;t.onerror=rej})}
-
 // ════════════════════════════════════════════
 // UTILIDADES
 // ════════════════════════════════════════════
@@ -546,9 +492,10 @@ function switchTab(pre,tab,el){
 // ════════════════════════════════════════════
 // CATÁLOGOS
 // ════════════════════════════════════════════
+let catsId=null;
 async function loadCats(){
   const rows=await dbAll('catalogos');
-  if(rows.length){const s=rows[rows.length-1];cats=normalizeCats(s)}
+  if(rows.length){const s=rows[rows.length-1];catsId=s.id;cats=normalizeCats(s)}
   else cats=normalizeCats(DEF);
   renderCats();fillSelects();
 }
@@ -564,7 +511,7 @@ function renderCats(){
     <div class="cat-items-grid">
       ${rows.length?rows.map(({n,i})=>`<div class="cat-item cat-unit-card">
         <span class="cat-item-num">${i+1}</span>
-        <input type="text" value="${escAttr(n)}" data-cat="${key}" data-i="${i}" onchange="renameCatItem('${key}',${i},this.value);renderCats()">
+        <input type="text" value="${escAttr(n)}" data-cat="${key}" data-i="${i}" onchange="renameCatItem('${key}',${i},this.value);renderCats();autoSaveCatalogos('✅ Nombre guardado')">
         ${catalogUnitInput(key,n)}
         ${isViewer?'':'<button onclick="quitarCatItem(\''+key+'\','+i+')" style="border:none;background:none;color:var(--gray);cursor:pointer;font-size:.7rem;padding:0 2px;flex-shrink:0;line-height:1" title="Quitar">✕</button>'}
       </div>`).join(''):'<div class="cat-empty">Sin resultados</div>'}
@@ -586,7 +533,7 @@ function filtrarCatalogo(key,value){
     input.setSelectionRange(len,len);
   }
 }
-function quitarCatItem(key,idx){
+async function quitarCatItem(key,idx){
   const nombre=cats[key][idx];
   if(!confirm(`¿Eliminar "${nombre}" del catálogo?`))return;
   cats[key].splice(idx,1);
@@ -594,9 +541,9 @@ function quitarCatItem(key,idx){
   if(cats.baseUnits?.[key])delete cats.baseUnits[key][nombre];
   if(cats.equivalencias?.[key])delete cats.equivalencias[key][nombre];
   renderCats();
-  toast(`🗑 "${nombre}" eliminado — guarda catálogos`,'var(--red)');
+  await autoSaveCatalogos(`🗑 "${nombre}" eliminado`,'var(--red)');
 }
-function agregarCatItem(key,inputId){
+async function agregarCatItem(key,inputId){
   const inp=document.getElementById(inputId);
   const val=(inp?.value||'').trim();
   if(!val){toast('⚠ Escribe un nombre','var(--red)');return}
@@ -608,13 +555,20 @@ function agregarCatItem(key,inputId){
   inp.value='';
   const unitInp=document.getElementById(inputId+'-unidad');if(unitInp)unitInp.value='';
   renderCats();
-  toast(`✅ "${val}" agregado — guarda catálogos`);
+  await autoSaveCatalogos(`✅ "${val}" agregado y guardado`);
 }
+// Guarda el catálogo completo en el servidor (fuente única de verdad).
 async function saveCatalogos(){
-  const rows=await dbAll('catalogos');
   const rec={encargados:cats.encargados||[],destinos:cats.destinos||[],insumos:cats.insumos,panes:cats.panes,pasteles:cats.pasteles,unidades:cats.unidades||{insumos:{},panes:{},pasteles:{}},baseUnits:cats.baseUnits||{insumos:{},panes:{},pasteles:{}},equivalencias:cats.equivalencias||{insumos:{},panes:{},pasteles:{}}};
-  if(rows.length){rec.id=rows[rows.length-1].id;await dbPut('catalogos',rec)}else await dbAdd('catalogos',rec);
-  await cloudSaveCats(rec);fillSelects();toast('✅ Catálogos guardados');
+  if(catsId){rec.id=catsId;await dbPut('catalogos',rec)}
+  else{catsId=await dbAdd('catalogos',rec)}
+  fillSelects();
+}
+// Envuelve saveCatalogos con feedback claro: el cambio ya quedó en pantalla
+// (cats en memoria), esto solo confirma que además se guardó en el servidor.
+async function autoSaveCatalogos(successMsg,color){
+  try{await saveCatalogos();toast(successMsg,color);}
+  catch(e){if(!e?.queued)toast('❌ '+(e?.message||'No se pudo guardar, intenta de nuevo'),'var(--red)');}
 }
 function fillSelects(){
   const setList=(id,arr)=>{let dl=document.getElementById(id);if(!dl){dl=document.createElement('datalist');dl.id=id;document.body.appendChild(dl)}dl.innerHTML=(arr||[]).map(n=>`<option value="${escAttr(n)}"></option>`).join('')};
@@ -668,15 +622,17 @@ function renderListaDestinos(){
   const isViewer=document.body.classList.contains('viewer-mode');
   c.innerHTML=dest.length?dest.map((n,i)=>`<div class="cat-item"><span class="cat-item-num">${i+1}</span><span style="flex:1">${n}</span>${isViewer?'':'<button onclick="quitarDestino('+i+')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:2px 8px;border-radius:4px">✕</button>'}</div>`).join(''):'<p style="color:var(--gray);font-size:.82rem;padding:8px 0">No hay destinos aún.</p>';
 }
-function agregarDestino(){
+async function agregarDestino(){
   const inp=document.getElementById('new-destino');const val=(inp?.value||'').trim();
   if(!val){toast('⚠ Escribe un nombre','var(--red)');return}
   if((cats.destinos||[]).includes(val)){toast('⚠ Ya existe','var(--gold)');return}
-  if(!cats.destinos)cats.destinos=[];cats.destinos.push(val);inp.value='';fillDestinos();renderListaDestinos();toast(`✅ "${val}" agregado — guarda catálogos`);
+  if(!cats.destinos)cats.destinos=[];cats.destinos.push(val);inp.value='';fillDestinos();renderListaDestinos();
+  await autoSaveCatalogos(`✅ "${val}" agregado y guardado`);
 }
-function quitarDestino(idx){
+async function quitarDestino(idx){
   const nombre=cats.destinos[idx];if(!confirm(`¿Eliminar destino "${nombre}"?`))return;
-  cats.destinos.splice(idx,1);fillDestinos();renderListaDestinos();toast(`🗑 "${nombre}" eliminado`,'var(--red)');
+  cats.destinos.splice(idx,1);fillDestinos();renderListaDestinos();
+  await autoSaveCatalogos(`🗑 "${nombre}" eliminado`,'var(--red)');
 }
 function renderListaEncargados(){
   const c=document.getElementById('lista-encargados');if(!c)return;
@@ -684,15 +640,17 @@ function renderListaEncargados(){
   const isViewer=document.body.classList.contains('viewer-mode');
   c.innerHTML=enc.length?enc.map((n,i)=>`<div class="cat-item"><span class="cat-item-num">${i+1}</span><span style="flex:1">${n}</span>${isViewer?'':'<button onclick="quitarEncargado('+i+')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:2px 8px;border-radius:4px">✕</button>'}</div>`).join(''):'<p style="color:var(--gray);font-size:.82rem;padding:8px 0">No hay encargados aún.</p>';
 }
-function agregarEncargado(){
+async function agregarEncargado(){
   const inp=document.getElementById('new-encargado');const val=(inp?.value||'').trim();
   if(!val){toast('⚠ Escribe un nombre','var(--red)');return}
   if((cats.encargados||[]).includes(val)){toast('⚠ Ya existe','var(--gold)');return}
-  if(!cats.encargados)cats.encargados=[];cats.encargados.push(val);inp.value='';fillEncargados();renderListaEncargados();toast(`✅ "${val}" agregado — guarda catálogos`);
+  if(!cats.encargados)cats.encargados=[];cats.encargados.push(val);inp.value='';fillEncargados();renderListaEncargados();
+  await autoSaveCatalogos(`✅ "${val}" agregado y guardado`);
 }
-function quitarEncargado(idx){
+async function quitarEncargado(idx){
   const nombre=cats.encargados[idx];if(!confirm(`¿Eliminar encargado "${nombre}"?`))return;
-  cats.encargados.splice(idx,1);fillEncargados();renderListaEncargados();toast(`🗑 "${nombre}" eliminado`,'var(--red)');
+  cats.encargados.splice(idx,1);fillEncargados();renderListaEncargados();
+  await autoSaveCatalogos(`🗑 "${nombre}" eliminado`,'var(--red)');
 }
 function fillProdSelect(){
   const cat=v('sp-cat'),s=document.getElementById('sp-prod');
@@ -994,11 +952,12 @@ async function guardarEntrada(){
   if(!lineas.length){toast('⚠ Agrega al menos un insumo con cantidad','var(--red)');return}
   if(lineas.some(l=>!l.unidad||l.factorBase<=0||l.cantidadBase<=0)){toast('⚠ Revisa presentación y equivalencia','var(--red)');return}
   const totalDoc=toNum(v('ent-total-doc'))||lineas.reduce((sum,l)=>sum+(l.precioTotal||0),0);
-  for(const l of lineas){
-    const data={fecha,tipodoc,numdoc,proveedor:prov,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,cantidadBase:l.cantidadBase,unidadBase:l.unidadBase,factorBase:l.factorBase,packInterno:l.packInterno||1,unidadInterna:l.unidadInterna||'',contenidoInterno:l.contenidoInterno||0,equivDetalle:l.equivDetalle,precio:l.precio||0,precioTotal:l.precioTotal||0,totalDoc,obs:l.obs||''};
-    const id=await dbAdd('entradas',data);
-    await cloudAdd('entradas',id,data);
-  }
+  try{
+    for(const l of lineas){
+      const data={fecha,tipodoc,numdoc,proveedor:prov,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,cantidadBase:l.cantidadBase,unidadBase:l.unidadBase,factorBase:l.factorBase,packInterno:l.packInterno||1,unidadInterna:l.unidadInterna||'',contenidoInterno:l.contenidoInterno||0,equivDetalle:l.equivDetalle,precio:l.precio||0,precioTotal:l.precioTotal||0,totalDoc,obs:l.obs||''};
+      await dbAdd('entradas',data);
+    }
+  }catch(e){if(!e?.queued){toast('❌ '+(e?.message||'No se pudo guardar'),'var(--red)');return}}
   document.getElementById('lineas-entrada').innerHTML='';lineaEntCnt=0;
   ['ent-tipodoc','ent-numdoc','ent-prov','ent-total-doc'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
   toast(`✅ ${lineas.length} insumo(s) registrados`);renderEntradas();addLineaEntrada();
@@ -1033,11 +992,12 @@ async function guardarSalidaIns(){
   const lineas=leerLineas('lineas-salida-ins').filter(l=>l.insumo&&l.cantidad>0);
   if(!lineas.length){toast('⚠ Agrega al menos un insumo con cantidad','var(--red)');return}
   if(lineas.some(l=>!l.unidad||l.factorBase<=0||l.cantidadBase<=0)){toast('⚠ Revisa presentación y equivalencia','var(--red)');return}
-  for(const l of lineas){
-    const data={fecha,motivo,ticket,obs,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,cantidadBase:l.cantidadBase,unidadBase:l.unidadBase,factorBase:l.factorBase,packInterno:l.packInterno||1,unidadInterna:l.unidadInterna||'',contenidoInterno:l.contenidoInterno||0,equivDetalle:l.equivDetalle,obs_linea:l.obs||''};
-    const id=await dbAdd('salidas_ins',data);
-    await cloudAdd('salidas_ins',id,data);
-  }
+  try{
+    for(const l of lineas){
+      const data={fecha,motivo,ticket,obs,insumo:l.insumo,unidad:l.unidad,cantidad:l.cantidad,cantidadBase:l.cantidadBase,unidadBase:l.unidadBase,factorBase:l.factorBase,packInterno:l.packInterno||1,unidadInterna:l.unidadInterna||'',contenidoInterno:l.contenidoInterno||0,equivDetalle:l.equivDetalle,obs_linea:l.obs||''};
+      await dbAdd('salidas_ins',data);
+    }
+  }catch(e){if(!e?.queued){toast('❌ '+(e?.message||'No se pudo guardar'),'var(--red)');return}}
   document.getElementById('lineas-salida-ins').innerHTML='';lineaSalCnt=0;
   ['sal-ins-motivo','sal-ins-ticket','sal-ins-obs'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
   toast(`✅ ${lineas.length} insumo(s) registrados`);renderSalidasIns();addLineaSalidaIns();
@@ -1138,7 +1098,7 @@ async function guardarProd(tipo){
   const eqB=teoCant>0?cant/teoCant:0;
   const porLata=tipo==='pan'?toNum(v('pp-por-lata')):0;
   const data={tipo,fecha:v(pre+'-fecha')||hoy(),turno:v(pre+'-turno'),producto:v(pre+'-tipo'),unidad:v(pre+'-und'),cantidad:cant,cantidadPresentacion:presCant,unidadTeorica:v(pre+'-teo-und')||(tipo==='pan'?'lata':'bandeja'),cantidadTeorica:teoCant,unidadSub:unidadBase,factorBase:factor,unidadBase,eqA:teoCant,eqB,defectuosa:def,neto:cant-def,obs:v(pre+'-obs'),...(porLata>0?{porLata}:{})};
-  const id=await dbAdd('produccion',data);await cloudAdd('produccion',id,data);
+  try{await dbAdd('produccion',data);}catch(e){if(!e?.queued){toast('❌ '+(e?.message||'No se pudo guardar'),'var(--red)');return}}
   [pre+'-turno',pre+'-tipo',pre+'-und',pre+'-pres-cant',pre+'-teo-und',pre+'-eq-a',pre+'-sub-und',pre+'-cant',pre+'-def',pre+'-obs'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
   const plEl=document.getElementById('pp-por-lata');if(plEl)plEl.value='';
   if(tipo==='pan')setPanFixedUnits();else setPastelFixedUnits();
@@ -1175,7 +1135,7 @@ async function guardarSalidaProd(){
   const factor=getEquivFactor(key,v('sp-prod'),v('sp-und'));
   if(factor<=0){toast('⚠ Revisa presentación y equivalencia','var(--red)');return}
   const data={fecha:v('sp-fecha')||hoy(),categoria:v('sp-cat'),producto:v('sp-prod'),unidad:v('sp-und'),cantidad:cant,cantidadBase:cant*factor,unidadBase:getBaseUnit(key,v('sp-prod')),factorBase:factor,destino:v('sp-dest'),encargado:v('sp-encargado'),documento:v('sp-doc'),obs:v('sp-obs')};
-  const id=await dbAdd('salida_prod',data);await cloudAdd('salida_prod',id,data);
+  try{await dbAdd('salida_prod',data);}catch(e){if(!e?.queued){toast('❌ '+(e?.message||'No se pudo guardar'),'var(--red)');return}}
   ['sp-cat','sp-prod','sp-und','sp-cant','sp-dest','sp-encargado','sp-doc','sp-obs'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
   updateSalidaUnitSelect();
   toast('✅ Salida registrada');renderSalidaProd();renderInvProd();fillProdSelect();
@@ -1357,9 +1317,9 @@ async function saveInvFromPanel(btn){
   else if(tipo==='prod'){const catKey=cats.panes.includes(n)?'panes':'pasteles';const pp=getPrimaryPractical(catKey,n);si=Math.round(si*pp.factor*1000)/1000;aj=Math.round(aj*pp.factor*1000)/1000;}
   const rows=await dbAll('inventario');const ex=rows.find(r=>r.key===key);
   const data=tipo==='ins'?{key,si,aj,min:mn}:{key,si,aj};
-  const merged={...(ex||{}),key,...data};const savedAt=Date.now();const mergedTS={...merged,_savedAt:savedAt};
-  if(ex)await dbPut('inventario',mergedTS);else await dbAdd('inventario',mergedTS);
-  if(fsOnline){try{const{doc,setDoc}=window._fs;await setDoc(window._fs.doc(fsDb,'inventario',key),mergedTS,{merge:true});}catch(e){}}
+  const merged={...(ex||{}),key,...data};
+  try{if(ex)await dbPut('inventario',merged);else await dbAdd('inventario',merged);}
+  catch(e){if(!e?.queued){toast('❌ '+(e?.message||'No se pudo guardar'),'var(--red)');return}}
   toast('✅ Stock guardado');
   await renderInv();
 }
@@ -1455,7 +1415,7 @@ async function saveEdit(){
     updated.unidadBase=updated.unidadSub;
     updated.neto=updated.cantidad-updated.defectuosa;
   }
-  await dbPut(store,updated);await cloudUpdate(store,id,updated);
+  try{await dbPut(store,updated);}catch(e){if(!e?.queued){toast('❌ '+(e?.message||'No se pudo guardar'),'var(--red)');return}}
   closeModal();toast('✅ Registro actualizado');
   const renders={entradas:renderEntradas,salidas_ins:renderSalidasIns,produccion:renderProd,salida_prod:renderSalidaProd};
   if(renders[store])renders[store]();
@@ -1469,7 +1429,8 @@ document.getElementById('modal-edit').addEventListener('click',function(e){if(e.
 // ════════════════════════════════════════════
 async function del(store,id,cb){
   if(!confirm('¿Eliminar este registro?'))return;
-  await dbDel(store,id);await cloudDelete(store,id);toast('🗑 Eliminado','var(--red)');cb();
+  try{await dbDel(store,id);}catch(e){if(!e?.queued){toast('❌ '+(e?.message||'No se pudo eliminar'),'var(--red)');return}}
+  toast('🗑 Eliminado','var(--red)');cb();
 }
 
 // ════════════════════════════════════════════
@@ -1754,18 +1715,17 @@ async function importarDatos(input){
 }
 
 async function init(){
-  await openDB();await loadCats();
+  await loadCats();
   setHoy('ent-fecha','sal-ins-fecha','pp-fecha','pa-fecha','sp-fecha');
   initOCRConfig();
   renderDash();renderEntradas();renderSalidasIns();renderProd();
   const dateStr=new Date().toLocaleDateString('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'short',year:'numeric'});
   const sdDate=document.getElementById('sd-date');if(sdDate)sdDate.textContent=dateStr;
   addLineaEntrada();addLineaSalidaIns();
-  initFirebase();
-  window.addEventListener('online',()=>{fsOnline=true;setSyncUI('sync','Reconectando...');initFirebase()});
-  window.addEventListener('offline',()=>{fsOnline=false;setSyncUI('off','Sin internet');_listeners.forEach(u=>u());_listeners=[]});
+  updateConnUI();
+  window.addEventListener('online',()=>{updateConnUI();flushPending()});
+  window.addEventListener('offline',updateConnUI);
 }
-if(sessionStorage.getItem('pc_role'))init();
 
 // ════════════════════════════════════════════
 // PWA — SERVICE WORKER + BOTÓN INSTALAR
