@@ -579,6 +579,8 @@ function fillSelects(){
   updateCatalogUnitSelect('pasteles',v('pa-tipo'),'pa-und');
   updateProdEquiv('pp','panes');
   updateProdEquiv('pa','pasteles');
+  renderProdPicker('pp','panes');
+  renderProdPicker('pa','pasteles');
   updateSalidaUnitSelect();
   fillEncargados();renderListaEncargados();fillDestinos();renderListaDestinos();
 }
@@ -1040,6 +1042,18 @@ function setPastelFixedUnits(){
   const sub=document.getElementById('pa-sub-und');
   if(sub)sub.value='unidad';
 }
+// Selector visual de productos (cuadros táctiles). Es aditivo: solo escribe el
+// nombre en el input existente y dispara la MISMA lógica de siempre.
+function renderProdPicker(pre,key){
+  const el=document.getElementById(pre+'-picker');if(!el)return;
+  const arr=cats[key]||[];const cur=v(pre+'-tipo');const emoji=key==='panes'?'🍞':'🎂';
+  el.innerHTML=arr.map(n=>`<button type="button" class="prod-chip${n===cur?' sel':''}" data-n="${escAttr(n)}" onclick="pickProd('${pre}','${key}',this.dataset.n)"><span class="pc-emoji">${emoji}</span><span class="pc-nm">${escHtml(n)}</span></button>`).join('');
+}
+function pickProd(pre,key,name){
+  const inp=document.getElementById(pre+'-tipo');if(inp)inp.value=name;
+  updateProdEquiv(pre,key);
+  renderProdPicker(pre,key);
+}
 function updateProdEquiv(pre,key){
   if(pre==='pp'){setPanFixedUnits();calcProdBase(pre);return}
   if(pre==='pa'){setPastelFixedUnits();calcProdBase(pre);return}
@@ -1102,6 +1116,7 @@ async function guardarProd(tipo){
   [pre+'-turno',pre+'-tipo',pre+'-und',pre+'-pres-cant',pre+'-teo-und',pre+'-eq-a',pre+'-sub-und',pre+'-cant',pre+'-def',pre+'-obs'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''});
   const plEl=document.getElementById('pp-por-lata');if(plEl)plEl.value='';
   if(tipo==='pan')setPanFixedUnits();else setPastelFixedUnits();
+  renderProdPicker(pre,key);
   toast('✅ Producción registrada');renderProd();
 }
 async function renderProd(){
