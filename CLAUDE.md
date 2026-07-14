@@ -5,16 +5,22 @@ navegador. **Ahora es una app cliente–servidor propia** (Node + Express +
 SQLite) que corre en el VPS del dueño. Si trabajas sobre la versión vieja,
 romperás el despliegue. Lee esto completo.
 
-## Rama de trabajo (IMPORTANTE)
+## Rama de trabajo (IMPORTANTE — LÉELO)
 
-- **`main` es la versión OFICIAL y actualizada.** Contiene la arquitectura nueva
-  (Node + Express + SQLite, frontend en `public/`) con todos los módulos.
-- **Trabaja partiendo de `main`.** Crea tu rama de trabajo desde `main`
-  (`git checkout main && git pull && git checkout -b mi-cambio`) y, al terminar,
-  fusiona de vuelta a `main`.
-- **NO te bases en historial viejo** anterior a la migración (versiones con
-  Firebase/IndexedDB y archivos en la raíz). Si ves `firebase`, `indexedDB` o
-  archivos del frontend fuera de `public/`, estás en la versión equivocada.
+⚠️ **Hay DOS versiones vivas en paralelo hasta que se complete la migración:**
+
+- **`main` = versión ANTIGUA (Firebase/IndexedDB, archivos en la raíz).** Es la
+  que **Netlify** sirve a la operadora (Mari) en producción **hoy**. **NO la
+  toques.** Modificar `main` cambia la app que Mari usa a diario.
+- **`claude/app-robustness-review-tmufc5` = versión NUEVA y oficial de desarrollo**
+  (Node + Express + SQLite, frontend en `public/`, con todos los módulos). Es la
+  que corre en el VPS propio (`pancontrol.casamilagro.com.pe`).
+
+**Trabaja SIEMPRE sobre `claude/app-robustness-review-tmufc5`:**
+`git fetch origin && git checkout claude/app-robustness-review-tmufc5 && git pull`.
+
+Cuando se haga la migración final (mover a Mari al VPS y apagar Netlify), esta
+rama pasará a ser `main`. Hasta entonces, **no fusiones nada a `main`.**
 
 ## Estructura del proyecto
 
