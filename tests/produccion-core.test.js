@@ -345,6 +345,23 @@ test('ignora valores vacíos o inválidos y maneja lista vacía',()=>{
   assert.strictEqual(vacio.nEvaluaciones,0);
 });
 
+console.log('\n■ Lote dorado');
+test('compara métricas de un lote contra el dorado (dif absoluta y %)',()=>{
+  const actual={pesoProm:82,rendimiento:90,merma:16,duracion:70,sensorial:4.2};
+  const dorado={pesoProm:80,rendimiento:95,merma:14,duracion:60,sensorial:4.6};
+  const r=C.compararLoteDorado(actual,dorado);
+  const peso=r.find(x=>x.clave==='pesoProm');
+  assert.strictEqual(peso.dif,2); casi(peso.difPct,2.5);
+  const rend=r.find(x=>x.clave==='rendimiento');
+  assert.strictEqual(rend.dif,-5);
+});
+test('maneja indicadores faltantes sin romper',()=>{
+  const r=C.compararLoteDorado({pesoProm:80},{});
+  const peso=r.find(x=>x.clave==='pesoProm');
+  assert.strictEqual(peso.actual,80); assert.strictEqual(peso.dorado,null);
+  assert.strictEqual(peso.dif,null); assert.strictEqual(peso.difPct,null);
+});
+
 console.log(`\n══════════════════════════════════`);
 console.log(`Resultado: ${pasadas} pasadas, ${falladas} falladas`);
 if(falladas>0)process.exit(1);

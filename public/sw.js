@@ -1,5 +1,5 @@
-// PanControl Service Worker v2.2 — comparación de versiones en Recetas
-const CACHE_NAME = 'pancontrol-v2.2';
+// PanControl Service Worker v2.3 — ficha sensorial + lote dorado
+const CACHE_NAME = 'pancontrol-v2.3';
 
 // Archivos a cachear para uso offline
 const PRECACHE_URLS = [

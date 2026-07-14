@@ -396,6 +396,28 @@ function resumenSensorial(evaluaciones,atributos){
   return{porAtributo,general,nEvaluaciones:evals.length};
 }
 
+// ── Lote dorado: comparación de un lote contra el ideal ─────────
+// Recibe dos "perfiles" de lote (objetos con métricas ya calculadas)
+// y devuelve, por indicador, la diferencia absoluta y porcentual.
+function compararLoteDorado(actual,dorado){
+  const a=actual||{},d=dorado||{};
+  const campos=[
+    {clave:'pesoProm',label:'Peso promedio (g)'},
+    {clave:'rendimiento',label:'Rendimiento %'},
+    {clave:'merma',label:'Merma %'},
+    {clave:'duracion',label:'Tiempo (min)'},
+    {clave:'sensorial',label:'Puntuación sensorial'}
+  ];
+  return campos.map(c=>{
+    const va=a[c.clave],vd=d[c.clave];
+    const dif=(Number.isFinite(Number(va))&&Number.isFinite(Number(vd)))?Number(va)-Number(vd):null;
+    return{clave:c.clave,label:c.label,
+      actual:(va==null||va==='')?null:Number(va),
+      dorado:(vd==null||vd==='')?null:Number(vd),
+      dif,difPct:(dif!=null&&Number(vd))?dif/Number(vd)*100:null};
+  });
+}
+
 // ── Comparación de dos versiones de receta ──────────────────────
 // Compara componentes (por tipo+refId) y las métricas de la versión.
 // Cada componente puede quedar: 'agregado' (solo en B), 'quitado'
@@ -449,6 +471,7 @@ return{
   snapshotVersion,
   PERMISOS,puede,genCodigo,
   compararVersiones,
-  ATRIBUTOS_SENSORIALES,resumenSensorial
+  ATRIBUTOS_SENSORIALES,resumenSensorial,
+  compararLoteDorado
 };
 });

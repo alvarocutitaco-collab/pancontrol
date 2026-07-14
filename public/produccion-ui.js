@@ -915,8 +915,69 @@ async function estAbrirOrden(id){
     ${o.real?estSeccionResultados(o):''}
     ${o.estado==='terminada'?estSeccionCalidad(o):''}
     ${o.estado==='terminada'?estSeccionSensorial(o):''}
+    ${o.estado==='terminada'?estSeccionLoteDorado(o):''}
   </div>`;
   el.scrollIntoView({behavior:'smooth'});
+}
+// ── Lote dorado (resultado ideal de referencia por producto) ──
+function estPerfilLote(o){
+  const k=o.kpis||{};
+  const producto=o.productoId?estProd(o.productoId):null;
+  const tol={objetivo:producto?.pesoDespues||producto?.pesoAntes||o.snapshot?.version?.pesoUnidad||null,min:producto?.tolMin||null,max:producto?.tolMax||null};
+  const stats=EstCore.statsPesos(o.muestrasPeso||[],tol);
+  const sens=EstCore.resumenSensorial((o.sensorial&&o.sensorial.evaluaciones)||[],EstCore.ATRIBUTOS_SENSORIALES);
+  return{
+    pesoProm:stats?EstCore.redondear(stats.promedio,1):null,
+    rendimiento:k.rendimientoPct!=null?EstCore.redondear(k.rendimientoPct,1):null,
+    merma:k.mermaPct!=null?EstCore.redondear(k.mermaPct,1):null,
+    duracion:k.duracionMin!=null?k.duracionMin:null,
+    sensorial:sens.general.promedio!=null?EstCore.redondear(sens.general.promedio,2):null
+  };
+}
+function estSeccionLoteDorado(o){
+  const puede=estPuedeVer('calidad.evaluar')||estPuedeVer('receta.aprobar');
+  if(o.esLoteDorado){
+    return`<div class="card-title" style="margin-top:12px">🏆 Lote dorado</div>
+    <div class="est-aviso" style="border-color:var(--gold)">⭐ Este lote es el <b>LOTE DORADO de referencia</b> de este producto${o.doradoDesde?` (desde ${escHtml(String(o.doradoDesde).slice(0,10))})`:''}. Los demás lotes se comparan contra este.</div>
+    ${puede?`<button class="btn bsec bsm est-admin-only" onclick="estQuitarDorado(${o.id})">Quitar como lote dorado</button>`:''}`;
+  }
+  const dorado=(_estCache.est_ordenes||[]).find(x=>x.productoId===o.productoId&&x.esLoteDorado&&x.id!==o.id);
+  let comp='<div style="font-size:.78rem;color:var(--gray)">Este producto aún no tiene un lote dorado de referencia.</div>';
+  if(dorado){
+    const filas=EstCore.compararLoteDorado(estPerfilLote(o),estPerfilLote(dorado));
+    comp=`<div style="font-size:.8rem;color:var(--gray);margin:2px 0 6px">Comparación contra el lote dorado <b>${escHtml(dorado.codigo)}</b>:</div>
+    <div class="table-wrap"><table><thead><tr><th>Indicador</th><th>Este lote</th><th>Dorado 🏆</th><th>Diferencia</th></tr></thead><tbody>
+    ${filas.map(f=>{const buena=(f.clave==='rendimiento'||f.clave==='sensorial')?(f.dif>=0):(f.clave==='merma'||f.clave==='duracion')?(f.dif<=0):null;
+      const col=f.dif==null||buena==null?'var(--gray)':buena?'var(--green)':'var(--red)';
+      return`<tr><td>${f.label}</td><td>${f.actual??'—'}</td><td>${f.dorado??'—'}</td>
+      <td style="color:${col}">${f.dif!=null?((f.dif>0?'+':'')+EstCore.redondear(f.dif,1)+(f.difPct!=null?` (${(f.difPct>0?'+':'')+EstCore.redondear(f.difPct,0)}%)`:'')):'—'}</td></tr>`;}).join('')}
+    </tbody></table></div>`;
+  }
+  return`<div class="card-title" style="margin-top:12px">🏆 Lote dorado</div>${comp}
+    ${puede?`<button class="btn bgold bsm est-admin-only" onclick="estMarcarDorado(${o.id})" style="margin-top:6px">🏆 Marcar ESTE como lote dorado</button>`:''}`;
+}
+async function estMarcarDorado(id){
+  if(!estGuard('calidad.evaluar'))return;
+  const o=estOrden(id);if(!o)return;
+  if(o.productoId==null)return toast('⚠ Este lote no tiene un producto asociado','var(--red)');
+  if(!confirm('¿Marcar este lote como el LOTE DORADO (resultado ideal) de este producto? Reemplazará al anterior si existe.'))return;
+  for(const x of (_estCache.est_ordenes||[])){
+    if(x.productoId===o.productoId&&x.esLoteDorado&&x.id!==id)await dbPut('est_ordenes',{...x,esLoteDorado:false});
+  }
+  await dbPut('est_ordenes',{...o,esLoteDorado:true,doradoDesde:new Date().toISOString()});
+  await estAudit('lote.dorado','est_ordenes',id,null,{producto:o.productoId});
+  await estLoad('est_ordenes');
+  toast('🏆 Lote dorado actualizado');
+  estAbrirOrden(id);
+}
+async function estQuitarDorado(id){
+  if(!estGuard('calidad.evaluar'))return;
+  const o=estOrden(id);if(!o)return;
+  if(!confirm('¿Quitar este lote como referencia dorada?'))return;
+  await dbPut('est_ordenes',{...o,esLoteDorado:false});
+  await estAudit('lote.dorado.quitar','est_ordenes',id,null,null);
+  await estLoad('est_ordenes');
+  estAbrirOrden(id);
 }
 // ── Evaluación sensorial (ficha con escala y varios catadores) ──
 function estSeccionSensorial(o){
