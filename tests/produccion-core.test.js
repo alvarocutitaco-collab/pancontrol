@@ -5,7 +5,7 @@
 // ════════════════════════════════════════════════════════════════
 'use strict';
 const assert=require('assert');
-const C=require('../produccion-core.js');
+const C=require('../public/produccion-core.js');
 
 let pasadas=0,falladas=0;
 function test(nombre,fn){

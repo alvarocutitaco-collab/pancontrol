@@ -1,4 +1,21 @@
 /* ════════════════════════════════════════════
+   SELECTOR DE PRODUCTOS (cuadros táctiles) — Producción
+════════════════════════════════════════════ */
+.prod-picker{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px}
+.prod-chip{
+  display:flex;align-items:center;gap:9px;
+  border:2px solid var(--cream3);background:#fff;border-radius:14px;
+  padding:10px 14px;cursor:pointer;font-family:inherit;font-size:.95rem;font-weight:600;
+  color:var(--brown);transition:transform .13s,border-color .13s,box-shadow .13s;
+}
+.prod-chip .pc-emoji{font-size:1.35rem;line-height:1}
+.prod-chip:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:var(--sh)}
+.prod-chip.sel{border-color:var(--orange);background:var(--cream);box-shadow:var(--sh)}
+.prod-chip.sel::after{content:"✓";margin-left:2px;color:#fff;background:var(--orange);width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:.72rem;font-weight:800}
+.prod-picker-more{align-self:center;color:var(--gray);font-size:.82rem;font-weight:600}
+.viewer-mode .prod-picker{display:none}
+
+/* ════════════════════════════════════════════
    VARIABLES & RESET
 ════════════════════════════════════════════ */
 :root{
