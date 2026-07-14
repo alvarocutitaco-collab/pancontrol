@@ -232,7 +232,9 @@ async function cloudSaveCats(data){
 // ════════════════════════════════════════════
 // INDEXEDDB
 // ════════════════════════════════════════════
-const DB='PanControl2',VER=2;
+// VER 3: agrega los stores del módulo "Producción y estandarización" (est_*).
+// La migración solo CREA stores nuevos; nunca borra ni modifica datos existentes.
+const DB='PanControl2',VER=3;
 let db,cats={insumos:[],panes:[],pasteles:[]},editCtx=null,catFilters={insumos:'',panes:'',pasteles:''};
 const DEF={
   encargados:[],destinos:[],
@@ -483,7 +485,7 @@ function prodOutBaseQty(rec){
 function openDB(){
   return new Promise((res,rej)=>{
     const r=indexedDB.open(DB,VER);
-    r.onupgradeneeded=e=>{const d=e.target.result;['entradas','salidas_ins','produccion','salida_prod','catalogos','inventario'].forEach(s=>{if(!d.objectStoreNames.contains(s))d.createObjectStore(s,{keyPath:'id',autoIncrement:true})})};
+    r.onupgradeneeded=e=>{const d=e.target.result;['entradas','salidas_ins','produccion','salida_prod','catalogos','inventario','est_ingredientes','est_productos','est_recetas','est_versiones','est_ordenes','est_lotes','est_auditoria'].forEach(s=>{if(!d.objectStoreNames.contains(s))d.createObjectStore(s,{keyPath:'id',autoIncrement:true})})};
     r.onsuccess=e=>{db=e.target.result;res()};r.onerror=rej;
   });
 }
@@ -534,6 +536,7 @@ function showPage(id,el){
   if(id==='inventario')renderInv();
   if(id==='insumos'){renderEntradas();renderSalidasIns()}
   if(id==='produccion')renderProd();
+  if(id==='estandarizacion'&&typeof estRenderPanel==='function')estRenderPanel();
 }
 function switchTab(pre,tab,el){
   const pg=el.closest('.page');

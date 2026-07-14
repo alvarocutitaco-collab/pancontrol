@@ -1,5 +1,5 @@
-// PanControl Service Worker v1.8
-const CACHE_NAME = 'pancontrol-v1.8';
+// PanControl Service Worker v1.9 — agrega módulo Producción y Estandarización
+const CACHE_NAME = 'pancontrol-v1.9';
 
 // Archivos a cachear para uso offline
 const PRECACHE_URLS = [
@@ -7,6 +7,8 @@ const PRECACHE_URLS = [
   './index.html',
   './style.css',
   './app.js',
+  './produccion-core.js',
+  './produccion-ui.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
