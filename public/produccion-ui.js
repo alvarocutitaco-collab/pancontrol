@@ -371,7 +371,72 @@ async function estRenderRecetas(){
       <td>${r.tipo==='sub'?'🥣 Subreceta':'🥖 Producto'}</td>
       <td>${vs.map(vr=>`<button class="btn bsec bsm" style="margin:2px" onclick="estAbrirVersion(${vr.id})">v${vr.numero} ${estBadge(vr.estado)}</button>`).join('')||'—'}</td></tr>`;
     }).join(''):empty(3)}</tbody></table></div></div>
+  ${(()=>{const comp=recetas.filter(r=>estVersionesDe(r.id).length>=2);return `
+  <div class="card">
+    <div class="card-title">🔍 Comparar versiones</div>
+    ${comp.length?`
+    <div class="fgrid">
+      <div class="fg"><label>Receta</label><select id="ec-rec" onchange="estCompLlenarVersiones()"><option value="">Selecciona...</option>${comp.map(r=>`<option value="${r.id}">${escHtml(r.nombre)}</option>`).join('')}</select></div>
+      <div class="fg"><label>Versión A (anterior)</label><select id="ec-va"></select></div>
+      <div class="fg"><label>Versión B (nueva)</label><select id="ec-vb"></select></div>
+    </div>
+    <button class="btn bb btn-full" onclick="estCompararRender()">⇄ Comparar</button>
+    <div id="ec-result" style="margin-top:12px"></div>`
+    :'<div class="est-aviso">Aún no hay recetas con 2 o más versiones. Crea una nueva versión desde una receta (botón "Crear nueva versión") para poder comparar.</div>'}
+  </div>`;})()}
   <div id="est-rec-editor"></div>`;
+}
+// Nombre legible de un componente (ingrediente o subreceta).
+function estNombreComp(c){
+  if(c.tipo==='sub'){const r=estRec(c.refId);return r?r.nombre:'(subreceta '+c.refId+')';}
+  const i=estIng(c.refId);return i?i.nombre:'(ingrediente '+c.refId+')';
+}
+function estCompLlenarVersiones(){
+  const vs=estVersionesDe(Number(v('ec-rec'))); // ordenadas desc por número
+  const opts=vs.map(vr=>`<option value="${vr.id}">v${vr.numero} (${vr.estado})</option>`).join('');
+  const a=document.getElementById('ec-va'),b=document.getElementById('ec-vb');
+  if(a)a.innerHTML=opts;if(b)b.innerHTML=opts;
+  if(b&&vs[0])b.value=vs[0].id;          // B = la más nueva
+  if(a&&vs[1])a.value=vs[1].id;          // A = la anterior
+  const r=document.getElementById('ec-result');if(r)r.innerHTML='';
+}
+async function estCompararRender(){
+  const idA=Number(v('ec-va')),idB=Number(v('ec-vb'));
+  if(!idA||!idB)return toast('Selecciona receta y las dos versiones','var(--red)');
+  await estLoad('est_versiones','est_ingredientes','est_recetas');
+  const vA=(_estCache.est_versiones||[]).find(x=>x.id===idA);
+  const vB=(_estCache.est_versiones||[]).find(x=>x.id===idB);
+  if(!vA||!vB)return toast('No se encontró alguna versión','var(--red)');
+  const enri=vr=>({...vr,componentes:(vr.componentes||[]).map(c=>({...c,nombre:estNombreComp(c)}))});
+  const d=EstCore.compararVersiones(enri(vA),enri(vB));
+  const badge={agregado:'<span class="est-badge" style="background:var(--green2)">+ nuevo</span>',
+    quitado:'<span class="est-badge" style="background:var(--red)">− quitado</span>',
+    cambiado:'<span class="est-badge" style="background:var(--gold)">≠ cambió</span>',igual:''};
+  const ubaseDe=c=>{if(c.tipo==='sub'){const r=estResolver(c.refId);return r&&r.version.salida?r.version.salida.unidad:'g';}const i=estIng(c.refId);return i?i.unidadBase:'g';};
+  const filasComp=d.componentes.map(c=>{
+    const ub=ubaseDe(c);
+    const bg=c.estado==='igual'?'':c.estado==='agregado'?'#EAF5EA':c.estado==='quitado'?'#FBEDED':'#FBF3E0';
+    return`<tr style="${bg?'background:'+bg:''}">
+      <td>${escHtml(c.nombre)} ${badge[c.estado]}</td>
+      <td>${c.cantidadA!=null?estFmt(c.cantidadA,ub)+(c.pctA!=null?` <span style="color:var(--gray)">(${c.pctA}%)</span>`:''):'—'}</td>
+      <td>${c.cantidadB!=null?estFmt(c.cantidadB,ub)+(c.pctB!=null?` <span style="color:var(--gray)">(${c.pctB}%)</span>`:''):'—'}</td></tr>`;
+  }).join('');
+  const num=x=>x==null?'—':x;
+  const min=x=>x==null?'—':x+' min';
+  const met=(lbl,f,fmt)=>`<tr style="${f.cambio?'background:#FBF3E0':''}"><td>${lbl}${f.cambio?' <span class="est-badge" style="background:var(--gold)">≠</span>':''}</td><td>${fmt(f.a)}</td><td>${fmt(f.b)}</td></tr>`;
+  document.getElementById('ec-result').innerHTML=`
+    ${d.hayCambios?'':'<div class="est-aviso">Los ingredientes de ambas versiones son idénticos.</div>'}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Concepto</th><th>v${vA.numero}</th><th>v${vB.numero}</th></tr></thead><tbody>
+      <tr><td colspan="3" style="font-weight:700;color:var(--brown2)">🧾 Ingredientes / componentes</td></tr>
+      ${filasComp||'<tr><td colspan="3" style="color:var(--gray)">Sin componentes</td></tr>'}
+      <tr><td colspan="3" style="font-weight:700;color:var(--brown2)">📐 Métricas</td></tr>
+      ${met('Salida por lote',d.salida,num)}
+      ${met('Peso por unidad (g)',d.pesoUnidad,num)}
+      ${met('Tiempo esperado',d.tiempoEsperadoMin,min)}
+      ${met('N.º de pasos',d.nPasos,num)}
+      ${met('Tiempo total de pasos',d.tiempoPasosMin,min)}
+    </tbody></table></div>`;
 }
 async function estCrearReceta(){
   if(!estGuard('receta.crear'))return;

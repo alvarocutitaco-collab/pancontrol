@@ -1,5 +1,5 @@
-// PanControl Service Worker v2.1 — agrega módulo Producción y Estandarización
-const CACHE_NAME = 'pancontrol-v2.1';
+// PanControl Service Worker v2.2 — comparación de versiones en Recetas
+const CACHE_NAME = 'pancontrol-v2.2';
 
 // Archivos a cachear para uso offline
 const PRECACHE_URLS = [

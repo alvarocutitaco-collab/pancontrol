@@ -274,6 +274,49 @@ test('genCodigo produce códigos legibles',()=>{
   assert.strictEqual(C.genCodigo('OP',7,'2026-07-14'),'OP-20260714-007');
 });
 
+console.log('\n■ Comparación de versiones');
+test('detecta ingredientes agregados, quitados y cambiados',()=>{
+  const vA={salida:{cantidad:10,unidad:'und'},pesoUnidad:80,tiempoEsperadoMin:60,
+    componentes:[
+      {tipo:'ing',refId:1,nombre:'Harina',cantidadBase:1000,esBase:true},
+      {tipo:'ing',refId:2,nombre:'Agua',cantidadBase:600},
+      {tipo:'ing',refId:3,nombre:'Sal',cantidadBase:20}
+    ],pasos:[{tiempoMin:20},{tiempoMin:40}]};
+  const vB={salida:{cantidad:12,unidad:'und'},pesoUnidad:75,tiempoEsperadoMin:55,
+    componentes:[
+      {tipo:'ing',refId:1,nombre:'Harina',cantidadBase:1000,esBase:true},
+      {tipo:'ing',refId:2,nombre:'Agua',cantidadBase:650},   // cambiado
+      {tipo:'ing',refId:4,nombre:'Aceite',cantidadBase:30}    // agregado (sal quitada)
+    ],pasos:[{tiempoMin:25},{tiempoMin:40}]};
+  const d=C.compararVersiones(vA,vB);
+  const byNombre=n=>d.componentes.find(c=>c.nombre===n);
+  assert.strictEqual(byNombre('Sal').estado,'quitado');
+  assert.strictEqual(byNombre('Aceite').estado,'agregado');
+  assert.strictEqual(byNombre('Agua').estado,'cambiado');
+  assert.strictEqual(byNombre('Harina').estado,'igual');
+  assert.ok(d.hayCambios);
+});
+test('compara métricas de la versión (salida, peso, tiempos)',()=>{
+  const vA={salida:{cantidad:10,unidad:'und'},pesoUnidad:80,componentes:[{tipo:'ing',refId:1,cantidadBase:100,esBase:true}],pasos:[{tiempoMin:20}]};
+  const vB={salida:{cantidad:10,unidad:'und'},pesoUnidad:90,componentes:[{tipo:'ing',refId:1,cantidadBase:100,esBase:true}],pasos:[{tiempoMin:20}]};
+  const d=C.compararVersiones(vA,vB);
+  assert.strictEqual(d.salida.cambio,false);
+  assert.strictEqual(d.pesoUnidad.cambio,true);
+  assert.strictEqual(d.pesoUnidad.a,80);
+  assert.strictEqual(d.pesoUnidad.b,90);
+  assert.strictEqual(d.hayCambios,false); // ingredientes iguales
+});
+test('el porcentaje panadero se recalcula por versión',()=>{
+  const v={salida:{cantidad:10,unidad:'und'},componentes:[
+    {tipo:'ing',refId:1,nombre:'Harina',cantidadBase:1000,esBase:true},
+    {tipo:'ing',refId:2,nombre:'Agua',cantidadBase:600}]};
+  const d=C.compararVersiones(v,v);
+  const agua=d.componentes.find(c=>c.nombre==='Agua');
+  assert.strictEqual(agua.estado,'igual');
+  casi(agua.pctA,60);
+  casi(agua.pctB,60);
+});
+
 console.log(`\n══════════════════════════════════`);
 console.log(`Resultado: ${pasadas} pasadas, ${falladas} falladas`);
 if(falladas>0)process.exit(1);

@@ -367,6 +367,45 @@ function genCodigo(prefijo,seq,fechaISO){
   return f?`${prefijo}-${f}-${String(seq).padStart(3,'0')}`:`${prefijo}-${String(seq).padStart(3,'0')}`;
 }
 
+// ── Comparación de dos versiones de receta ──────────────────────
+// Compara componentes (por tipo+refId) y las métricas de la versión.
+// Cada componente puede quedar: 'agregado' (solo en B), 'quitado'
+// (solo en A), 'cambiado' (distinta cantidad base) o 'igual'.
+// Los componentes deben traer `nombre` para mostrarse (la UI lo enriquece).
+function compararVersiones(vA,vB){
+  const A=vA||{},B=vB||{};
+  const pctA=calcularPorcentajes((A.componentes||[]).map(c=>({...c,cantidad:c.cantidadBase})));
+  const pctB=calcularPorcentajes((B.componentes||[]).map(c=>({...c,cantidad:c.cantidadBase})));
+  const clave=c=>`${c.tipo==='sub'?'sub':'ing'}:${c.refId}`;
+  const mapA=new Map(pctA.map(c=>[clave(c),c]));
+  const mapB=new Map(pctB.map(c=>[clave(c),c]));
+  const claves=[...new Set([...mapA.keys(),...mapB.keys()])];
+  const componentes=claves.map(k=>{
+    const a=mapA.get(k),b=mapB.get(k),ref=a||b;
+    let estado;
+    if(a&&!b)estado='quitado';
+    else if(!a&&b)estado='agregado';
+    else if(Math.abs((Number(a.cantidadBase)||0)-(Number(b.cantidadBase)||0))>1e-6)estado='cambiado';
+    else estado='igual';
+    return{clave:k,tipo:ref.tipo==='sub'?'sub':'ing',refId:ref.refId,
+      nombre:(a&&a.nombre)||(b&&b.nombre)||k,
+      cantidadA:a?Number(a.cantidadBase)||0:null,cantidadB:b?Number(b.cantidadBase)||0:null,
+      pctA:a?a.porcentaje:null,pctB:b?b.porcentaje:null,estado};
+  });
+  const campo=(x,y)=>({a:x??null,b:y??null,cambio:(Number(x)||0)!==(Number(y)||0)});
+  const tPasos=v=>(v.pasos||[]).reduce((s,p)=>s+(Number(p.tiempoMin)||0),0);
+  return{
+    componentes,
+    salida:campo(A.salida&&A.salida.cantidad,B.salida&&B.salida.cantidad),
+    unidadSalida:{a:A.salida&&A.salida.unidad||null,b:B.salida&&B.salida.unidad||null},
+    pesoUnidad:campo(A.pesoUnidad,B.pesoUnidad),
+    tiempoEsperadoMin:campo(A.tiempoEsperadoMin,B.tiempoEsperadoMin),
+    nPasos:campo((A.pasos||[]).length,(B.pasos||[]).length),
+    tiempoPasosMin:campo(tPasos(A),tPasos(B)),
+    hayCambios:componentes.some(c=>c.estado!=='igual')
+  };
+}
+
 return{
   UNIDADES_BASE,CONV_ESTANDAR,
   ESTADOS_VERSION,ESTADOS_ORDEN,ESTADOS_LOTE,ESTADOS_PRODUCTO,
@@ -379,6 +418,7 @@ return{
   statsPesos,parseMuestras,
   validarRegistroReal,duracionMin,calcularKpis,
   snapshotVersion,
-  PERMISOS,puede,genCodigo
+  PERMISOS,puede,genCodigo,
+  compararVersiones
 };
 });
