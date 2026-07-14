@@ -317,6 +317,34 @@ test('el porcentaje panadero se recalcula por versión',()=>{
   casi(agua.pctB,60);
 });
 
+console.log('\n■ Evaluación sensorial');
+test('promedia por atributo y usa Aceptación general como puntuación',()=>{
+  const evals=[
+    {evaluador:'Mari',valores:{'Sabor':5,'Aceptación general':5}},
+    {evaluador:'Juan',valores:{'Sabor':3,'Aceptación general':4}}
+  ];
+  const r=C.resumenSensorial(evals);
+  const sabor=r.porAtributo.find(a=>a.nombre==='Sabor');
+  casi(sabor.promedio,4); assert.strictEqual(sabor.n,2);
+  assert.strictEqual(sabor.min,3); assert.strictEqual(sabor.max,5);
+  casi(r.general.promedio,4.5);
+  assert.strictEqual(r.general.fuente,'aceptación general');
+  assert.strictEqual(r.nEvaluaciones,2);
+});
+test('sin Aceptación general usa el promedio de atributos',()=>{
+  const evals=[{evaluador:'Mari',valores:{'Color':4,'Aroma':2}}];
+  const r=C.resumenSensorial(evals);
+  casi(r.general.promedio,3);
+  assert.strictEqual(r.general.fuente,'promedio de atributos');
+});
+test('ignora valores vacíos o inválidos y maneja lista vacía',()=>{
+  const r=C.resumenSensorial([{valores:{'Sabor':0,'Color':'x'}}]);
+  assert.strictEqual(r.porAtributo.find(a=>a.nombre==='Sabor').n,0);
+  assert.strictEqual(r.general.promedio,null);
+  const vacio=C.resumenSensorial([]);
+  assert.strictEqual(vacio.nEvaluaciones,0);
+});
+
 console.log(`\n══════════════════════════════════`);
 console.log(`Resultado: ${pasadas} pasadas, ${falladas} falladas`);
 if(falladas>0)process.exit(1);

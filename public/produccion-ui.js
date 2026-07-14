@@ -914,8 +914,85 @@ async function estAbrirOrden(id){
     ${['en_proceso','pausada','terminada'].includes(o.estado)?estSeccionMuestras(o):''}
     ${o.real?estSeccionResultados(o):''}
     ${o.estado==='terminada'?estSeccionCalidad(o):''}
+    ${o.estado==='terminada'?estSeccionSensorial(o):''}
   </div>`;
   el.scrollIntoView({behavior:'smooth'});
+}
+// ── Evaluación sensorial (ficha con escala y varios catadores) ──
+function estSeccionSensorial(o){
+  const s=o.sensorial||{escala:5,evaluaciones:[]};
+  const escala=Number(s.escala)||5;
+  const evals=s.evaluaciones||[];
+  const puede=estPuedeVer('calidad.evaluar');
+  const resumen=EstCore.resumenSensorial(evals,EstCore.ATRIBUTOS_SENSORIALES);
+  const tipos=[['interna_tecnica','Interna técnica'],['consumidor','Consumidor'],['informal','Observación informal'],['oficial','Oficial']];
+  const opciones=()=>{let o2='<option value="">—</option>';for(let i=1;i<=escala;i++)o2+=`<option value="${i}">${i}</option>`;return o2;};
+  return`<div class="card-title" style="margin-top:12px">👅 Evaluación sensorial</div>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+    <span style="font-size:.8rem;color:var(--gray)">Escala:</span>
+    <select ${puede?`onchange="estSensorialSetEscala(${o.id},this.value)"`:'disabled'} style="padding:6px 10px;border:2px solid var(--cream3);border-radius:var(--r3)">
+      <option value="5"${escala===5?' selected':''}>1 a 5</option><option value="7"${escala===7?' selected':''}>1 a 7</option></select>
+    <span style="font-size:.8rem;color:var(--gray)">· ${evals.length} evaluación(es)</span>
+  </div>
+  ${resumen.general.promedio!=null?`<div class="est-stats">
+     <div class="est-stat"><div class="est-stat-v" style="color:var(--green)">${EstCore.redondear(resumen.general.promedio,2)} / ${escala}</div><div class="est-stat-l">Puntuación general</div></div>
+     <div class="est-stat"><div class="est-stat-v">${resumen.nEvaluaciones}</div><div class="est-stat-l">Catadores</div></div>
+   </div>
+   <div class="table-wrap"><table><thead><tr><th>Atributo</th><th>Promedio</th><th>Mín/Máx</th><th>Desv.</th><th>N</th></tr></thead><tbody>
+   ${resumen.porAtributo.filter(a=>a.n>0).map(a=>`<tr><td>${a.nombre}</td><td><b>${EstCore.redondear(a.promedio,2)}</b></td><td>${a.min} / ${a.max}</td><td>${EstCore.redondear(a.desv,2)}</td><td>${a.n}</td></tr>`).join('')}
+   </tbody></table></div>`:'<div style="font-size:.78rem;color:var(--gray)">Aún no hay evaluaciones sensoriales.</div>'}
+  ${evals.length?`<div style="margin-top:8px"><div style="font-size:.72rem;font-weight:700;color:var(--brown2);text-transform:uppercase;margin-bottom:4px">Evaluaciones registradas</div>
+   ${evals.map((e,i)=>`<div class="est-paso-mini" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+     <span><b>${escHtml(e.evaluador||'—')}</b> · ${escHtml((tipos.find(t=>t[0]===e.tipo)||['',''])[1]||e.tipo||'')} · ${e.fecha?escHtml(String(e.fecha).slice(0,10)):''}${e.comentario?` · 💬 ${escHtml(e.comentario)}`:''}</span>
+     ${puede?`<button class="btn br bsm est-admin-only" onclick="estBorrarEvalSensorial(${o.id},${i})">🗑</button>`:''}</div>`).join('')}</div>`:''}
+  ${puede?`<div class="card" style="margin:10px 0 0;box-shadow:none;border:1.5px dashed var(--cream3)">
+    <div style="font-size:.72rem;font-weight:700;color:var(--brown2);text-transform:uppercase;margin-bottom:8px">Nueva evaluación de un catador</div>
+    <div class="fgrid">
+      <div class="fg"><label>Catador / evaluador</label><input type="text" id="es-eval" placeholder="Nombre"></div>
+      <div class="fg"><label>Tipo</label><select id="es-tipo">${tipos.map(t=>`<option value="${t[0]}">${t[1]}</option>`).join('')}</select></div>
+    </div>
+    <div class="fgrid">
+      ${EstCore.ATRIBUTOS_SENSORIALES.map((a,i)=>`<div class="fg"><label>${a} (1–${escala})</label><select id="es-a-${i}">${opciones()}</select></div>`).join('')}
+    </div>
+    <div class="fgrid one"><div class="fg"><label>Comentario</label><input type="text" id="es-com" placeholder="Opcional"></div></div>
+    <button class="btn bp btn-full" onclick="estAgregarEvalSensorial(${o.id})">➕ Registrar evaluación</button>
+  </div>`:''}`;
+}
+async function estAgregarEvalSensorial(id){
+  if(!estGuard('calidad.evaluar'))return;
+  const o=estOrden(id);if(!o)return;
+  const evaluador=v('es-eval').trim();
+  if(!evaluador)return toast('⚠ Escribe el nombre del evaluador','var(--red)');
+  const valores={};
+  EstCore.ATRIBUTOS_SENSORIALES.forEach((a,i)=>{const val=toNum(v('es-a-'+i));if(val>0)valores[a]=val;});
+  if(!Object.keys(valores).length)return toast('⚠ Califica al menos un atributo','var(--red)');
+  const s=o.sensorial||{escala:5,evaluaciones:[]};
+  const nueva={evaluador,tipo:v('es-tipo'),fecha:new Date().toISOString(),valores,comentario:v('es-com').trim()};
+  const nuevo={...o,sensorial:{...s,evaluaciones:[...(s.evaluaciones||[]),nueva]},updatedAt:new Date().toISOString()};
+  await dbPut('est_ordenes',nuevo);
+  await estAudit('sensorial.agregar','est_ordenes',id,null,{evaluador,tipo:nueva.tipo});
+  _estCache.est_ordenes=_estCache.est_ordenes.map(x=>x.id===id?nuevo:x);
+  toast('👅 Evaluación registrada');
+  estAbrirOrden(id);
+}
+async function estBorrarEvalSensorial(id,idx){
+  if(!estGuard('calidad.evaluar'))return;
+  const o=estOrden(id);if(!o||!o.sensorial)return;
+  if(!confirm('¿Borrar esta evaluación?'))return;
+  const evals=(o.sensorial.evaluaciones||[]).filter((_,i)=>i!==idx);
+  const nuevo={...o,sensorial:{...o.sensorial,evaluaciones:evals},updatedAt:new Date().toISOString()};
+  await dbPut('est_ordenes',nuevo);
+  _estCache.est_ordenes=_estCache.est_ordenes.map(x=>x.id===id?nuevo:x);
+  estAbrirOrden(id);
+}
+async function estSensorialSetEscala(id,val){
+  if(!estGuard('calidad.evaluar'))return;
+  const o=estOrden(id);if(!o)return;
+  const s=o.sensorial||{escala:5,evaluaciones:[]};
+  const nuevo={...o,sensorial:{...s,escala:Number(val)||5}};
+  await dbPut('est_ordenes',nuevo);
+  _estCache.est_ordenes=_estCache.est_ordenes.map(x=>x.id===id?nuevo:x);
+  estAbrirOrden(id);
 }
 async function estGuardarCabeceraOrden(id){
   if(!estGuard('orden.estado'))return;

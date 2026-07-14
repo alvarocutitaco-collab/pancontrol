@@ -367,6 +367,35 @@ function genCodigo(prefijo,seq,fechaISO){
   return f?`${prefijo}-${f}-${String(seq).padStart(3,'0')}`:`${prefijo}-${String(seq).padStart(3,'0')}`;
 }
 
+// ── Evaluación sensorial ────────────────────────────────────────
+// Atributos por defecto (configurables desde la UI si se desea).
+const ATRIBUTOS_SENSORIALES=['Apariencia','Color','Aroma','Sabor','Dulzor','Salinidad',
+  'Textura exterior','Textura interior','Humedad','Suavidad','Elasticidad','Uniformidad','Aceptación general'];
+// evaluaciones: [{evaluador,tipo,fecha,valores:{Atributo:n},comentario}]
+// Devuelve promedio/dispersión por atributo y una puntuación general
+// (usa "Aceptación general" si existe; si no, el promedio de atributos).
+function resumenSensorial(evaluaciones,atributos){
+  const evals=evaluaciones||[];
+  const atrs=(atributos&&atributos.length)?atributos:ATRIBUTOS_SENSORIALES;
+  const porAtributo=atrs.map(nombre=>{
+    const xs=evals.map(e=>Number(e.valores&&e.valores[nombre])).filter(n=>Number.isFinite(n)&&n>0);
+    if(!xs.length)return{nombre,n:0,promedio:null,min:null,max:null,desv:null};
+    const prom=xs.reduce((a,b)=>a+b,0)/xs.length;
+    const vari=xs.length>1?xs.reduce((a,x)=>a+(x-prom)*(x-prom),0)/(xs.length-1):0;
+    return{nombre,n:xs.length,promedio:prom,min:Math.min(...xs),max:Math.max(...xs),desv:Math.sqrt(vari)};
+  });
+  const acc=porAtributo.find(a=>a.nombre==='Aceptación general'&&a.n>0);
+  let general;
+  if(acc)general={promedio:acc.promedio,n:acc.n,fuente:'aceptación general'};
+  else{
+    const conDatos=porAtributo.filter(a=>a.promedio!=null);
+    general=conDatos.length
+      ?{promedio:conDatos.reduce((s,a)=>s+a.promedio,0)/conDatos.length,n:evals.length,fuente:'promedio de atributos'}
+      :{promedio:null,n:0,fuente:null};
+  }
+  return{porAtributo,general,nEvaluaciones:evals.length};
+}
+
 // ── Comparación de dos versiones de receta ──────────────────────
 // Compara componentes (por tipo+refId) y las métricas de la versión.
 // Cada componente puede quedar: 'agregado' (solo en B), 'quitado'
@@ -419,6 +448,7 @@ return{
   validarRegistroReal,duracionMin,calcularKpis,
   snapshotVersion,
   PERMISOS,puede,genCodigo,
-  compararVersiones
+  compararVersiones,
+  ATRIBUTOS_SENSORIALES,resumenSensorial
 };
 });
