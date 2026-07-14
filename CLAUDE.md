@@ -7,10 +7,14 @@ romperás el despliegue. Lee esto completo.
 
 ## Rama de trabajo (IMPORTANTE)
 
-- **Trabaja SIEMPRE sobre la rama `claude/app-robustness-review-tmufc5`.**
-- **NO uses `main` como base.** `main` todavía contiene la versión ANTIGUA
-  (Firebase/IndexedDB, archivos en la raíz) y está desactualizada.
-- Antes de empezar: `git fetch origin && git checkout claude/app-robustness-review-tmufc5 && git pull`.
+- **`main` es la versión OFICIAL y actualizada.** Contiene la arquitectura nueva
+  (Node + Express + SQLite, frontend en `public/`) con todos los módulos.
+- **Trabaja partiendo de `main`.** Crea tu rama de trabajo desde `main`
+  (`git checkout main && git pull && git checkout -b mi-cambio`) y, al terminar,
+  fusiona de vuelta a `main`.
+- **NO te bases en historial viejo** anterior a la migración (versiones con
+  Firebase/IndexedDB y archivos en la raíz). Si ves `firebase`, `indexedDB` o
+  archivos del frontend fuera de `public/`, estás en la versión equivocada.
 
 ## Estructura del proyecto
 
