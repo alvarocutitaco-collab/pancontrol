@@ -764,3 +764,32 @@ body.admin-mode #doraemon-widget{display:block}
   display:block;
   pointer-events:none;
 }
+
+/* ════════════════════════════════════════════
+   PRODUCCIÓN Y ESTANDARIZACIÓN (est-*)
+════════════════════════════════════════════ */
+.est-tabs{flex-wrap:wrap}
+.est-badge{display:inline-block;color:#fff;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.est-demo{display:inline-block;background:var(--gold);color:#fff;font-size:.62rem;font-weight:800;padding:1px 6px;border-radius:8px;vertical-align:middle}
+.est-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;padding:0 12px 12px}
+.est-stat{background:#fff;border:1.5px solid var(--cream3);border-radius:var(--r2);padding:10px;text-align:center;box-shadow:var(--sh)}
+.est-stat-v{font-size:1.15rem;font-weight:800;color:var(--brown)}
+.est-stat-l{font-size:.68rem;color:var(--gray);margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+.est-aviso{border:1.5px solid var(--gold);color:var(--brown2);background:var(--cream);border-radius:var(--r3);padding:8px 12px;font-size:.8rem;margin:8px 0}
+.est-paso{border:1.5px solid var(--cream3);border-radius:var(--r2);padding:10px;margin-bottom:8px;background:#fff}
+.est-paso-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:var(--brown2)}
+.est-paso-mini{border-left:3px solid var(--orange);padding:6px 10px;margin:6px 12px;font-size:.8rem;background:var(--cream)}
+#est-panel .card,#est-ing .card,#est-prod .card,#est-rec .card,#est-calc .card,#est-ord .card{margin-bottom:14px}
+#page-estandarizacion textarea{width:100%;padding:9px 12px;border:2px solid var(--cream3);border-radius:var(--r3);font-size:.88rem;color:var(--brown);background:var(--cream);outline:none;resize:vertical}
+/* Solo lectura: ocultar acciones de escritura del módulo */
+body.viewer-mode .est-admin-only{display:none!important}
+/* Vista imprimible */
+#est-print{display:none}
+@media print{
+  body>*{display:none!important}
+  #est-print{display:block!important;font-family:Georgia,serif;color:#000;padding:10px}
+  #est-print table{border-collapse:collapse;width:100%;margin:8px 0}
+  #est-print th,#est-print td{border:1px solid #444;padding:4px 8px;font-size:12px;text-align:left}
+  #est-print h2{font-size:18px;margin-bottom:6px}
+  #est-print h3{font-size:14px;margin:10px 0 4px}
+}

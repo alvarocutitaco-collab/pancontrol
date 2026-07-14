@@ -14,7 +14,9 @@ db.pragma('foreign_keys = ON');
 // el registro completo como JSON, igual que hacía IndexedDB (los campos varían
 // según origen: manual u OCR), evitando tener que rehacer un esquema relacional
 // estricto para reproducir exactamente lo que la app ya sabe leer/escribir.
-const STORES = ['entradas', 'salidas_ins', 'produccion', 'salida_prod', 'inventario', 'catalogos'];
+const STORES = ['entradas', 'salidas_ins', 'produccion', 'salida_prod', 'inventario', 'catalogos',
+  // Módulo "Producción y Estandarización" (recetas, versiones, órdenes, lotes, calidad)
+  'est_ingredientes', 'est_productos', 'est_recetas', 'est_versiones', 'est_ordenes', 'est_lotes', 'est_auditoria'];
 
 for (const store of STORES) {
   db.exec(`CREATE TABLE IF NOT EXISTS store_${store} (

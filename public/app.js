@@ -480,6 +480,7 @@ function showPage(id,el){
   if(id==='inventario')renderInv();
   if(id==='insumos'){renderEntradas();renderSalidasIns()}
   if(id==='produccion')renderProd();
+  if(id==='estandarizacion'&&typeof estRenderPanel==='function')estRenderPanel();
 }
 function switchTab(pre,tab,el){
   const pg=el.closest('.page');
