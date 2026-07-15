@@ -793,3 +793,10 @@ body.viewer-mode .est-admin-only{display:none!important}
   #est-print h2{font-size:18px;margin-bottom:6px}
   #est-print h3{font-size:14px;margin:10px 0 4px}
 }
+
+/* Fotos / evidencias del módulo de estandarización */
+.est-fotos{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px}
+.est-foto{position:relative;width:120px}
+.est-foto img{width:120px;height:120px;object-fit:cover;border-radius:10px;border:1.5px solid var(--cream3);display:block;background:var(--cream2)}
+.est-foto-cap{font-size:.68rem;color:var(--gray);margin-top:3px;line-height:1.2}
+.est-foto-del{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;cursor:pointer;font-size:.78rem;line-height:1;display:grid;place-items:center}

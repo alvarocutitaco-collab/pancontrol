@@ -1,5 +1,5 @@
-// PanControl Service Worker v2.3 — ficha sensorial + lote dorado
-const CACHE_NAME = 'pancontrol-v2.3';
+// PanControl Service Worker v2.4 — fotos/evidencias en lotes
+const CACHE_NAME = 'pancontrol-v2.4';
 
 // Archivos a cachear para uso offline
 const PRECACHE_URLS = [

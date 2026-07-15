@@ -916,6 +916,7 @@ async function estAbrirOrden(id){
     ${o.estado==='terminada'?estSeccionCalidad(o):''}
     ${o.estado==='terminada'?estSeccionSensorial(o):''}
     ${o.estado==='terminada'?estSeccionLoteDorado(o):''}
+    ${['en_proceso','pausada','terminada'].includes(o.estado)?estSeccionFotos(o):''}
   </div>`;
   el.scrollIntoView({behavior:'smooth'});
 }
@@ -977,6 +978,72 @@ async function estQuitarDorado(id){
   await dbPut('est_ordenes',{...o,esLoteDorado:false});
   await estAudit('lote.dorado.quitar','est_ordenes',id,null,null);
   await estLoad('est_ordenes');
+  estAbrirOrden(id);
+}
+// ── Fotos / evidencias (subida al servidor, comprimidas en el cliente) ──
+// Reduce la imagen antes de subir (menos peso, más rápido en la tablet).
+function estComprimirImagen(file,maxLado=1280,calidad=0.82){
+  return new Promise((res,rej)=>{
+    const img=new Image(),url=URL.createObjectURL(file);
+    img.onload=()=>{URL.revokeObjectURL(url);
+      let w=img.width,h=img.height;const esc=Math.min(1,maxLado/Math.max(w,h));
+      w=Math.round(w*esc);h=Math.round(h*esc);
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      res(c.toDataURL('image/jpeg',calidad));};
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('No se pudo leer la imagen'));};
+    img.src=url;
+  });
+}
+async function estSubirFoto(file,tipo,nota){
+  const dataUrl=await estComprimirImagen(file);
+  const r=await api('/api/upload',{method:'POST',body:{dataUrl}});
+  return{id:r.id,url:r.url,tipo:tipo||'otro',nota:nota||''};
+}
+const EST_TIPOS_FOTO=[['producto','Producto'],['corte','Corte interno'],['miga','Miga'],['comparativa','Comparativa'],['proceso','Proceso'],['otro','Otro']];
+function estSeccionFotos(o){
+  const puede=estPuedeVer('calidad.evaluar')||estPuedeVer('orden.real');
+  const fotos=o.fotos||[];
+  const lbl=t=>(EST_TIPOS_FOTO.find(x=>x[0]===t)||['','Otro'])[1];
+  return`<div class="card-title" style="margin-top:12px">📷 Fotos / evidencias</div>
+  ${fotos.length?`<div class="est-fotos">${fotos.map(f=>`
+    <div class="est-foto">
+      <a href="${escAttr(f.url)}" target="_blank" rel="noopener"><img src="${escAttr(f.url)}" alt="${escAttr(lbl(f.tipo))}" loading="lazy"></a>
+      <div class="est-foto-cap">${escHtml(lbl(f.tipo))}${f.nota?': '+escHtml(f.nota):''}</div>
+      ${puede?`<button class="est-foto-del est-admin-only" title="Borrar" onclick="estBorrarFoto(${o.id},'${escAttr(f.id)}')">✕</button>`:''}
+    </div>`).join('')}</div>`:'<div style="font-size:.78rem;color:var(--gray)">Sin fotos todavía. Sube la foto del producto, el corte, la miga…</div>'}
+  ${puede?`<div class="fgrid" style="margin-top:8px">
+    <div class="fg"><label>Tipo de foto</label><select id="ef-tipo">${EST_TIPOS_FOTO.map(t=>`<option value="${t[0]}">${t[1]}</option>`).join('')}</select></div>
+    <div class="fg"><label>Nota (opcional)</label><input type="text" id="ef-nota" placeholder="Ej.: corte a los 5 min"></div>
+    <div class="fg"><label>Imagen</label><input type="file" id="ef-file" accept="image/*" capture="environment"></div>
+  </div>
+  <button class="btn bp bsm" id="ef-btn" onclick="estAgregarFoto(${o.id})">📷 Subir foto</button>`:''}`;
+}
+async function estAgregarFoto(id){
+  if(!estPuedeVer('calidad.evaluar')&&!estPuedeVer('orden.real'))return estGuard('orden.real');
+  const o=estOrden(id);if(!o)return;
+  const file=document.getElementById('ef-file')?.files?.[0];
+  if(!file)return toast('⚠ Elige una imagen','var(--red)');
+  const btn=document.getElementById('ef-btn');if(btn){btn.disabled=true;btn.textContent='Subiendo...';}
+  try{
+    const foto=await estSubirFoto(file,v('ef-tipo'),v('ef-nota').trim());
+    const nuevo={...o,fotos:[...(o.fotos||[]),foto],updatedAt:new Date().toISOString()};
+    await dbPut('est_ordenes',nuevo);
+    await estAudit('foto.agregar','est_ordenes',id,null,{tipo:foto.tipo});
+    _estCache.est_ordenes=_estCache.est_ordenes.map(x=>x.id===id?nuevo:x);
+    toast('📷 Foto subida');
+    estAbrirOrden(id);
+  }catch(e){if(btn){btn.disabled=false;btn.textContent='📷 Subir foto';}toast('❌ '+(e?.message||'No se pudo subir la foto'),'var(--red)');}
+}
+async function estBorrarFoto(id,fotoId){
+  if(!estPuedeVer('calidad.evaluar')&&!estPuedeVer('orden.real'))return estGuard('orden.real');
+  const o=estOrden(id);if(!o)return;
+  if(!confirm('¿Borrar esta foto?'))return;
+  try{await api('/api/upload/'+fotoId,{method:'DELETE'});}catch(e){}
+  const nuevo={...o,fotos:(o.fotos||[]).filter(f=>f.id!==fotoId),updatedAt:new Date().toISOString()};
+  await dbPut('est_ordenes',nuevo);
+  _estCache.est_ordenes=_estCache.est_ordenes.map(x=>x.id===id?nuevo:x);
+  toast('🗑 Foto borrada','var(--red)');
   estAbrirOrden(id);
 }
 // ── Evaluación sensorial (ficha con escala y varios catadores) ──
