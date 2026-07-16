@@ -362,6 +362,17 @@ test('maneja indicadores faltantes sin romper',()=>{
   assert.strictEqual(peso.dif,null); assert.strictEqual(peso.difPct,null);
 });
 
+console.log('\n■ Propiedad por organización');
+test('un registro pertenece a su organización',()=>{
+  assert.strictEqual(C.perteneceAOrg({organizacion:2},2,1),true);
+  assert.strictEqual(C.perteneceAOrg({organizacion:2},1,1),false);
+});
+test('registros sin organización caen en la organización por defecto',()=>{
+  assert.strictEqual(C.perteneceAOrg({},1,1),true);
+  assert.strictEqual(C.perteneceAOrg({organizacion:null},1,1),true);
+  assert.strictEqual(C.perteneceAOrg({},2,1),false);
+});
+
 console.log(`\n══════════════════════════════════`);
 console.log(`Resultado: ${pasadas} pasadas, ${falladas} falladas`);
 if(falladas>0)process.exit(1);

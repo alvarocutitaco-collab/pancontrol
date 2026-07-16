@@ -16,7 +16,8 @@ db.pragma('foreign_keys = ON');
 // estricto para reproducir exactamente lo que la app ya sabe leer/escribir.
 const STORES = ['entradas', 'salidas_ins', 'produccion', 'salida_prod', 'inventario', 'catalogos',
   // Módulo "Producción y Estandarización" (recetas, versiones, órdenes, lotes, calidad)
-  'est_ingredientes', 'est_productos', 'est_recetas', 'est_versiones', 'est_ordenes', 'est_lotes', 'est_auditoria'];
+  'est_ingredientes', 'est_productos', 'est_recetas', 'est_versiones', 'est_ordenes', 'est_lotes', 'est_auditoria',
+  'est_organizaciones'];
 
 for (const store of STORES) {
   db.exec(`CREATE TABLE IF NOT EXISTS store_${store} (

@@ -367,6 +367,16 @@ function genCodigo(prefijo,seq,fechaISO){
   return f?`${prefijo}-${f}-${String(seq).padStart(3,'0')}`:`${prefijo}-${String(seq).padStart(3,'0')}`;
 }
 
+// ── Propiedad por organización ──────────────────────────────────
+// Separa la información por empresa propietaria. Los registros creados
+// antes de existir organizaciones (sin campo `organizacion`) se consideran
+// de la organización por defecto, para no perderlos ni mezclarlos.
+function perteneceAOrg(entidad,orgId,orgPorDefecto){
+  const o=entidad&&entidad.organizacion;
+  if(o==null||o==='')return String(orgId)===String(orgPorDefecto);
+  return String(o)===String(orgId);
+}
+
 // ── Evaluación sensorial ────────────────────────────────────────
 // Atributos por defecto (configurables desde la UI si se desea).
 const ATRIBUTOS_SENSORIALES=['Apariencia','Color','Aroma','Sabor','Dulzor','Salinidad',
@@ -472,6 +482,7 @@ return{
   PERMISOS,puede,genCodigo,
   compararVersiones,
   ATRIBUTOS_SENSORIALES,resumenSensorial,
-  compararLoteDorado
+  compararLoteDorado,
+  perteneceAOrg
 };
 });

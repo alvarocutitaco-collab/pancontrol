@@ -1,5 +1,5 @@
-// PanControl Service Worker v2.4 — fotos/evidencias en lotes
-const CACHE_NAME = 'pancontrol-v2.4';
+// PanControl Service Worker v2.5 — separacion por organizacion en recetas
+const CACHE_NAME = 'pancontrol-v2.5';
 
 // Archivos a cachear para uso offline
 const PRECACHE_URLS = [

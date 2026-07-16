@@ -8,7 +8,7 @@
 // ════════════════════════════════════════════════════════════════
 'use strict';
 
-const EST_STORES=['est_ingredientes','est_productos','est_recetas','est_versiones','est_ordenes','est_lotes','est_auditoria'];
+const EST_STORES=['est_ingredientes','est_productos','est_recetas','est_versiones','est_ordenes','est_lotes','est_auditoria','est_organizaciones'];
 const EST_OPERACIONES=['Pesado','Mezclado','Amasado','Reposo','Fermentación','Laminado','División','Formado','Rellenado','Horneado','Enfriado','Decoración','Empacado'];
 const EST_CRITERIOS_CALIDAD=['Peso','Tamaño','Color','Aroma','Sabor','Textura','Cocción','Presentación','Sellado','Empaque'];
 
@@ -61,6 +61,81 @@ async function estLoad(...stores){
   _estCache={..._estCache,...out};
   return out;
 }
+// ── Organizaciones (propiedad de las recetas) ──────────────────
+function estOrgs(){return(_estCache.est_organizaciones||[]).slice().sort((a,b)=>a.id-b.id)}
+function estOrgDefault(){const o=estOrgs();return o.length?o[0].id:null}   // la más antigua
+function estOrgNombre(id){const o=(_estCache.est_organizaciones||[]).find(x=>x.id===Number(id));return o?o.nombre:'—'}
+function estOrgActiva(){
+  const guardada=Number(localStorage.getItem('est_org_activa'))||null;
+  const existe=(_estCache.est_organizaciones||[]).some(x=>x.id===guardada);
+  return existe?guardada:estOrgDefault();
+}
+function estSetOrgActiva(id){localStorage.setItem('est_org_activa',String(id));estRenderOrgBar();estRefrescarVistaActual();}
+function estEnOrgActiva(entidad){return EstCore.perteneceAOrg(entidad,estOrgActiva(),estOrgDefault())}
+// Crea la organización por defecto la primera vez (no rompe datos previos).
+// Candado contra condición de carrera: si varias vistas la invocan casi a la
+// vez, todas esperan la MISMA creación en lugar de crear duplicados.
+let _estBootstrapPromise=null;
+async function estBootstrapOrgs(){
+  if((_estCache.est_organizaciones||[]).length)return;
+  if(_estBootstrapPromise)return _estBootstrapPromise;
+  _estBootstrapPromise=(async()=>{
+    await estLoad('est_organizaciones');                 // re-verifica con datos frescos
+    if(!(_estCache.est_organizaciones||[]).length){
+      const id=await dbAdd('est_organizaciones',{nombre:'Mi organización',createdAt:new Date().toISOString()});
+      await estLoad('est_organizaciones');
+      if(!localStorage.getItem('est_org_activa'))localStorage.setItem('est_org_activa',String(id));
+    }
+  })();
+  try{await _estBootstrapPromise;}finally{_estBootstrapPromise=null;}
+}
+function estRefrescarVistaActual(){
+  // Re-renderiza la pestaña visible tras cambiar de organización.
+  const activa=document.querySelector('#page-estandarizacion .tab.active')?.dataset.tab;
+  ({panel:estRenderPanel,ing:estRenderIngredientes,prod:estRenderProductos,rec:estRenderRecetas,calc:estRenderCalc,ord:estRenderOrdenes}[activa]||(()=>{}))();
+}
+function estRenderOrgBar(){
+  const el=document.getElementById('est-orgbar');if(!el)return;
+  const orgs=estOrgs();const activa=estOrgActiva();const puede=estPuedeVer('config');
+  el.innerHTML=`
+  <div class="est-orgbar">
+    <div class="est-org-row">
+      <span class="est-org-lbl">🏢 Organización:</span>
+      <select class="est-org-sel" onchange="estSetOrgActiva(this.value)">
+        ${orgs.map(o=>`<option value="${o.id}"${o.id===activa?' selected':''}>${escHtml(o.nombre)}</option>`).join('')||'<option>—</option>'}
+      </select>
+      ${puede?`<button class="btn bsec bsm est-admin-only" onclick="estCrearOrg()">＋ Nueva</button>
+      <button class="btn bsec bsm est-admin-only" onclick="estRenombrarOrg()">✏ Renombrar</button>`:''}
+    </div>
+    <div class="est-org-warn">⚠ Registra, exporta o reutiliza únicamente fórmulas y procesos cuya documentación estés autorizado a usar. Cada receta pertenece a la organización seleccionada.</div>
+  </div>`;
+}
+async function estCrearOrg(){
+  if(!estGuard('config'))return;
+  const nombre=prompt('Nombre de la nueva organización (ej.: Casa Milagro):');
+  if(nombre==null)return;
+  const n=nombre.trim();if(!n)return toast('⚠ Escribe un nombre','var(--red)');
+  if(estOrgs().some(o=>o.nombre.toLowerCase()===n.toLowerCase()))return toast('⚠ Ya existe una organización con ese nombre','var(--gold)');
+  const id=await dbAdd('est_organizaciones',{nombre:n,createdAt:new Date().toISOString()});
+  await estAudit('org.crear','est_organizaciones',id,null,{nombre:n});
+  await estLoad('est_organizaciones');
+  localStorage.setItem('est_org_activa',String(id));
+  estRenderOrgBar();estRefrescarVistaActual();
+  toast('🏢 Organización creada: '+n);
+}
+async function estRenombrarOrg(){
+  if(!estGuard('config'))return;
+  const id=estOrgActiva();const actual=estOrgNombre(id);
+  const nombre=prompt('Nuevo nombre para la organización:',actual);
+  if(nombre==null)return;
+  const n=nombre.trim();if(!n)return toast('⚠ Escribe un nombre','var(--red)');
+  const org=(_estCache.est_organizaciones||[]).find(x=>x.id===Number(id));if(!org)return;
+  await dbPut('est_organizaciones',{...org,nombre:n});
+  await estAudit('org.renombrar','est_organizaciones',id,{nombre:actual},{nombre:n});
+  await estLoad('est_organizaciones');
+  estRenderOrgBar();estRefrescarVistaActual();
+  toast('✅ Organización renombrada');
+}
 function estIng(id){return(_estCache.est_ingredientes||[]).find(x=>x.id===id)}
 function estProd(id){return(_estCache.est_productos||[]).find(x=>x.id===id)}
 function estRec(id){return(_estCache.est_recetas||[]).find(x=>x.id===id)}
@@ -86,6 +161,8 @@ function estResolverComponentes(recetaId){
 async function estRenderPanel(){
   const el=document.getElementById('est-panel');if(!el)return;
   await estLoad(...EST_STORES);
+  await estBootstrapOrgs();
+  estRenderOrgBar();
   const ords=_estCache.est_ordenes||[],lotes=_estCache.est_lotes||[],vers=_estCache.est_versiones||[];
   const term=ords.filter(o=>o.estado==='terminada');
   const rends=term.map(o=>o.kpis&&o.kpis.rendimientoPct).filter(x=>x!=null);
@@ -251,8 +328,9 @@ async function estBorrarIng(id){
 let _estProdEdit=null;
 async function estRenderProductos(){
   const el=document.getElementById('est-prod');if(!el)return;
-  await estLoad('est_productos','est_recetas');
-  const rows=(_estCache.est_productos||[]).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)));
+  await estLoad('est_productos','est_recetas','est_organizaciones');
+  await estBootstrapOrgs();estRenderOrgBar();
+  const rows=(_estCache.est_productos||[]).filter(estEnOrgActiva).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)));
   el.innerHTML=`
   <div class="card form-card">
     <div class="card-title" id="est-prod-form-title">Nuevo producto elaborado</div>
@@ -279,7 +357,7 @@ async function estRenderProductos(){
       <button class="btn bsec" id="ep-cancel" style="display:none" onclick="estRenderProductos()">Cancelar</button>
     </div>
   </div>
-  <div class="card"><div class="card-title">Productos elaborados (${rows.length})</div>
+  <div class="card"><div class="card-title">Productos de ${escHtml(estOrgNombre(estOrgActiva()))} (${rows.length})</div>
     <div class="table-wrap"><table><thead><tr><th>Código</th><th>Nombre</th><th>Categoría</th><th>Peso obj. (g)</th><th>Tolerancia (g)</th><th>Bandeja</th><th>Estado</th><th>✏️</th><th>🗑</th></tr></thead><tbody>
     ${rows.length?rows.map(r=>`<tr>
       <td>${escHtml(r.codigo)}</td><td><b>${escHtml(r.nombre)}</b>${r.demo?' <span class="est-demo">DEMO</span>':''}</td>
@@ -314,6 +392,7 @@ async function estGuardarProducto(){
     toast('✅ Producto actualizado');
   }else{
     rec.createdAt=ahora;
+    rec.organizacion=estOrgActiva();       // pertenece a la organización activa
     const id=await dbAdd('est_productos',rec);
     await estAudit('producto.crear','est_productos',id,null,rec);
     toast('✅ Producto creado');
@@ -348,8 +427,9 @@ async function estBorrarProd(id){
 let estEd=null; // estado del editor: {recetaId, versionId, comps:[], pasos:[]}
 async function estRenderRecetas(){
   const el=document.getElementById('est-rec');if(!el)return;
-  await estLoad('est_recetas','est_versiones','est_productos','est_ingredientes');
-  const recetas=(_estCache.est_recetas||[]).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)));
+  await estLoad('est_recetas','est_versiones','est_productos','est_ingredientes','est_organizaciones');
+  await estBootstrapOrgs();estRenderOrgBar();
+  const recetas=(_estCache.est_recetas||[]).filter(estEnOrgActiva).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)));
   const prods=(_estCache.est_productos||[]);
   el.innerHTML=`
   <div class="card form-card">
@@ -363,7 +443,7 @@ async function estRenderRecetas(){
     </div>
     <button class="btn bp btn-full" onclick="estCrearReceta()">➕ Crear receta (versión 1 en borrador)</button>
   </div>
-  <div class="card"><div class="card-title">Recetas y versiones (${recetas.length})</div>
+  <div class="card"><div class="card-title">Recetas de ${escHtml(estOrgNombre(estOrgActiva()))} (${recetas.length})</div>
     <div class="table-wrap"><table><thead><tr><th>Receta</th><th>Tipo</th><th>Versiones</th></tr></thead><tbody>
     ${recetas.length?recetas.map(r=>{
       const vs=estVersionesDe(r.id);
@@ -453,7 +533,7 @@ async function estCrearReceta(){
     if(!nombre)return toast('⚠ Escribe el nombre de la subreceta','var(--red)');
   }
   const ahora=new Date().toISOString();
-  const recetaId=await dbAdd('est_recetas',{nombre,tipo:tipo==='sub'?'sub':'producto',productoId,createdAt:ahora});
+  const recetaId=await dbAdd('est_recetas',{nombre,tipo:tipo==='sub'?'sub':'producto',productoId,organizacion:estOrgActiva(),createdAt:ahora});
   const versionId=await dbAdd('est_versiones',{
     recetaId,numero:1,estado:'borrador',responsable:v('er-resp').trim(),motivo:'Versión inicial',
     salida:{cantidad:0,unidad:tipo==='sub'?'g':'und'},pesoUnidad:null,tiempoEsperadoMin:null,
