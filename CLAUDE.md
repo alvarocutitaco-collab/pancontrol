@@ -7,20 +7,15 @@ romperás el despliegue. Lee esto completo.
 
 ## Rama de trabajo (IMPORTANTE — LÉELO)
 
-⚠️ **Hay DOS versiones vivas en paralelo hasta que se complete la migración:**
-
-- **`main` = versión ANTIGUA (Firebase/IndexedDB, archivos en la raíz).** Es la
-  que **Netlify** sirve a la operadora (Mari) en producción **hoy**. **NO la
-  toques.** Modificar `main` cambia la app que Mari usa a diario.
-- **`claude/app-robustness-review-tmufc5` = versión NUEVA y oficial de desarrollo**
-  (Node + Express + SQLite, frontend en `public/`, con todos los módulos). Es la
-  que corre en el VPS propio (`pancontrol.casamilagro.com.pe`).
-
-**Trabaja SIEMPRE sobre `claude/app-robustness-review-tmufc5`:**
-`git fetch origin && git checkout claude/app-robustness-review-tmufc5 && git pull`.
-
-Cuando se haga la migración final (mover a Mari al VPS y apagar Netlify), esta
-rama pasará a ser `main`. Hasta entonces, **no fusiones nada a `main`.**
+- **`main` es la rama OFICIAL y actualizada.** Contiene la app nueva (Node +
+  Express + SQLite, frontend en `public/`, con todos los módulos) y es la que
+  corre en el VPS propio (`pancontrol.casamilagro.com.pe`). La migración desde
+  la app vieja (Firebase/Netlify) ya se completó; esa versión quedó obsoleta.
+- **Trabaja partiendo de `main`:** `git fetch origin && git checkout main && git pull`.
+  Crea tu rama desde `main` para el cambio y fusiónala de vuelta a `main`.
+- **NO te bases en historial viejo** anterior a la migración. Si ves `firebase`,
+  `indexedDB` o archivos del frontend fuera de `public/`, estás en la versión
+  equivocada.
 
 ## Estructura del proyecto
 

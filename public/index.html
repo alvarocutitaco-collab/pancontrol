@@ -91,7 +91,7 @@
     <button class="sni active" onclick="showPage('dashboard',this)"><span class="sni-ico">📊</span>Resumen del Día</button>
     <button class="sni" onclick="showPage('insumos',this)"><span class="sni-ico">📥</span>Entrada de Insumos</button>
     <button class="sni" onclick="showPage('produccion',this)"><span class="sni-ico">⚙️</span>Producción</button>
-    <button class="sni" onclick="showPage('estandarizacion',this)"><span class="sni-ico">📐</span>Recetas y Estándares</button>
+    <button class="sni est-admin-only" onclick="showPage('estandarizacion',this)"><span class="sni-ico">📐</span>Recetas y Estándares</button>
     <button class="sni" onclick="showPage('inventario',this)"><span class="sni-ico">📦</span>Inventario</button>
     <button class="sni" onclick="showPage('catalogos',this)"><span class="sni-ico">📋</span>Catálogos</button>
   </nav>
@@ -330,7 +330,7 @@
 </div>
 
 <!-- ── PRODUCCIÓN Y ESTANDARIZACIÓN ── -->
-<div class="page" id="page-estandarizacion">
+<div class="page est-admin-only" id="page-estandarizacion">
   <div class="page-header">
     <div class="ptitle">📐 Producción y estandarización</div>
     <div class="psub">Recetas técnicas, versiones, calculadora, órdenes y calidad</div>
@@ -494,7 +494,7 @@
   <button class="nav-item" id="bnav-produccion" onclick="showPage('produccion',this)">
     <span class="nav-ico">⚙️</span><span class="nav-lbl">Producción</span>
   </button>
-  <button class="nav-item" id="bnav-estandarizacion" onclick="showPage('estandarizacion',this)">
+  <button class="nav-item est-admin-only" id="bnav-estandarizacion" onclick="showPage('estandarizacion',this)">
     <span class="nav-ico">📐</span><span class="nav-lbl">Recetas</span>
   </button>
   <button class="nav-item" id="bnav-inventario" onclick="showPage('inventario',this)">
