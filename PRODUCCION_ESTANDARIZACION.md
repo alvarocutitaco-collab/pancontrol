@@ -107,7 +107,8 @@ catálogos, caja ni autenticación.
 - `est_recetas` — nombre, tipo (`producto`|`sub`), productoId, `organizacion`
   (empresa propietaria), `confidencialidad`
   (`interna`|`restringida`|`plantilla`|`transferible`; default `interna`),
-  `transferidaDe:{organizacion,recetaId,fecha,por}` si es una copia recibida.
+  `transferidaDe:{organizacion,recetaId,fecha,por}` si es una copia recibida,
+  `reqEstandar:{minLotes,minOperadores}` (validación cruzada, ver Incremento 4).
 - `est_versiones` — recetaId, numero, estado, responsable, motivo,
   `salida:{cantidad,unidad}`, pesoUnidad, tiempoEsperadoMin, obs (conocimiento
   práctico), `componentes:[{tipo,refId,cantidad(base),porcentaje,orden,
@@ -141,6 +142,11 @@ catálogos, caja ni autenticación.
 - `est_mediciones` — fecha, productoId, variable, valor, unidad, nota,
   organizacion. Cada medición de una variable controlada (ver Incremento 3).
   Aislada por organización en el servidor (campo `organizacion`).
+- `est_operadores` — nombre, rol, activo, organizacion. Maestros/ayudantes que
+  producen (ver Incremento 4).
+- `est_certificaciones` — operadorId, productoId, estado
+  (`no`|`formacion`|`certificado`), fecha, evaluadoPor, organizacion. Matriz de
+  certificación operador × producto (ver Incremento 4).
 
 Las cantidades calculables no se almacenan duplicadas, salvo los snapshots
 históricos (plan y receta congelada en la orden), que existen a propósito.
@@ -360,5 +366,33 @@ no toca el control de peso existente en las órdenes.
   y resumen (incluye el caso de límites nulos). Verificado end-to-end en navegador
   (definir variable, registrar, clasificar, graficar) sin errores JS.
 
-> Pendiente afín (Incremento 4): validación cruzada (mínimo de lotes/operadores
-> antes de aprobar un estándar) y matriz de certificación de operadores.
+## 17. Incremento 4 — Validación cruzada y certificación de operadores
+
+Evita que un estándar se apruebe con una sola prueba o de una sola persona, y
+formaliza quién está certificado para producir cada producto.
+
+- **Validación cruzada al aprobar** (`estAprobarVersion`): antes de aprobar una
+  versión como estándar se exige un mínimo de **lotes terminados** y de
+  **operadores distintos** que la hayan producido. Si no se cumple, la
+  aprobación se **bloquea**; el admin puede aprobar como **excepción** explícita,
+  que queda registrada en la versión (`aprobacionExcepcion`) y en la auditoría.
+- **Requisitos por receta** (`est_recetas.reqEstandar = {minLotes, minOperadores}`,
+  default `{3, 2}`): editables por admin en el editor de receta, junto a un panel
+  que muestra la evidencia actual (lotes/operadores) y si ya cumple.
+- **Núcleo puro** (`produccion-core.js`, con pruebas): `evidenciaEstandar`
+  (cuenta lotes = órdenes terminadas y operadores distintos por receta),
+  `validacionCruzada` (qué falta), `estadoCertificacion` / `ESTADOS_CERTIFICACION`.
+- **Operadores y matriz de certificación** (pestaña "🎓 Operadores"): alta/edición
+  de operadores (`est_operadores`) y una **matriz operador × producto**
+  (`est_certificaciones`) con estado ⬜ no / 🟡 en formación / ✅ certificado. La
+  matriz marca además con ● **quién ya produjo** cada producto (según las órdenes
+  terminadas), para apoyar la decisión de certificar. Ambos stores están aislados
+  por organización en el servidor.
+- **Pruebas**: `node tests/produccion-core.test.js` cubre conteo de evidencia,
+  bloqueo/paso de la validación cruzada y estado de certificación. Verificado
+  end-to-end en navegador (bloqueo con evidencia insuficiente, aprobación al
+  cumplir, alta de operador y certificación) sin errores JS.
+
+> Pendiente afín (Incremento 5): desviaciones/acciones correctivas (CAPA),
+> catálogo de maquinaria y cuellos de botella, y costos por lote (congelar costo
+> a la fecha).
