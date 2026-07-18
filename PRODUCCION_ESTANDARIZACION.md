@@ -102,7 +102,10 @@ catálogos, caja ni autenticación.
   pesoDespues, tolMin/tolMax, dimensiones, unidadVenta, vidaUtilDias,
   conservación, porBandeja, porLote, muestraRecomendada, estado
   (desarrollo/prueba/aprobado/suspendido/descontinuado).
-- `est_recetas` — nombre, tipo (`producto`|`sub`), productoId.
+- `est_recetas` — nombre, tipo (`producto`|`sub`), productoId, `organizacion`
+  (empresa propietaria), `confidencialidad`
+  (`interna`|`restringida`|`plantilla`|`transferible`; default `interna`),
+  `transferidaDe:{organizacion,recetaId,fecha,por}` si es una copia recibida.
 - `est_versiones` — recetaId, numero, estado, responsable, motivo,
   `salida:{cantidad,unidad}`, pesoUnidad, tiempoEsperadoMin, obs (conocimiento
   práctico), `componentes:[{tipo,refId,cantidad(base),porcentaje,orden,
@@ -122,6 +125,13 @@ catálogos, caja ni autenticación.
   rechazado), obs. Diseñado para relacionarse a futuro con lotes de insumos.
 - `est_auditoria` — fecha, usuario (rol), acción, entidad, entidadId,
   antes/después, motivo.
+- `est_organizaciones` — nombre, createdAt. Empresa propietaria de recetas y
+  productos (ver Incremento 1a).
+- `est_exportaciones` — fecha, usuario, recetaId, recetaNombre, versionId,
+  versionNumero, `nivel` (confidencialidad al momento de la salida), `formato`
+  (`json`|`csv`|`transferencia`), `destino` (`archivo`|`transferencia`),
+  organizacionOrigen, organizacionDestino, autorizadoPor. Historial de cada
+  salida de información (ver Incremento 1b).
 
 Las cantidades calculables no se almacenan duplicadas, salvo los snapshots
 históricos (plan y receta congelada en la orden), que existen a propósito.
@@ -246,3 +256,42 @@ en `ROLES` (app.js) y mapeándolos en `estRol()` (produccion-ui.js).
   general fácilmente configurable).
 - Exportación estructurada: ya disponible por receta (JSON/CSV) y por módulo
   (JSON); ampliable a fichas técnicas completas.
+
+## 15. Incremento 1 — Propiedad y confidencialidad
+
+### 1a — Separación por organización
+Cada receta y producto pertenece a una **organización** (`est_organizaciones`).
+La barra 🏢 permite elegir la organización activa; recetas y productos se
+filtran por ella. Los registros creados antes de existir organizaciones caen en
+la organización por defecto (la más antigua). Núcleo: `EstCore.perteneceAOrg`.
+
+### 1b — Confidencialidad y control de exportación / transferencia
+Cada receta tiene un **nivel de confidencialidad** (campo
+`est_recetas.confidencialidad`, default `interna`) que decide si su contenido
+puede salir del sistema. Núcleo puro en `produccion-core.js` (con pruebas):
+
+| Nivel          | Exportar a archivo | Copiar a otra organización |
+|----------------|--------------------|----------------------------|
+| `interna`      | con autorización (queda registrada) | ❌ bloqueado |
+| `restringida`  | ❌ bloqueado        | ❌ bloqueado |
+| `plantilla`    | ✅ permitido        | ✅ permitido |
+| `transferible` | ✅ permitido        | ✅ permitido |
+
+- Funciones núcleo: `NIVELES_CONFIDENCIALIDAD`, `normNivelConfidencial`,
+  `nivelConfidencial`, `politicaConfidencial`, `puedeExportarReceta`,
+  `requiereAutorizacionExport`, `puedeTransferirReceta`.
+- **Exportación** (`estExportarReceta`): bloquea las restringidas; en las
+  internas pide el nombre de quien autoriza; toda salida se registra en
+  `est_exportaciones` (**historial de exportaciones**, visible en la pestaña
+  Recetas).
+- **Transferencia** (`estTransferirReceta`): copia la receta y todas sus
+  versiones a otra organización, solo si es `plantilla`/`transferible` y con
+  autorización expresa. La copia queda como `interna` en el destino (evita
+  reenvíos en cadena) y guarda `transferidaDe` para trazabilidad.
+- El nivel se edita desde el editor de receta (solo admin). En la lista de
+  recetas se muestra un distintivo de confidencialidad por receta.
+
+> Nota: 1b refuerza la protección en la **interfaz** y deja el rastro en el
+> historial. El **refuerzo en el servidor** (que el backend impida ver/editar o
+> exportar datos de otra organización, no solo ocultarlos) corresponde al
+> Incremento 1c, aún pendiente.

@@ -373,6 +373,37 @@ test('registros sin organización caen en la organización por defecto',()=>{
   assert.strictEqual(C.perteneceAOrg({},2,1),false);
 });
 
+console.log('\n■ Confidencialidad y control de exportación');
+test('nivel por defecto es interna cuando falta o es desconocido',()=>{
+  assert.strictEqual(C.nivelConfidencial(null),'interna');
+  assert.strictEqual(C.nivelConfidencial({}),'interna');
+  assert.strictEqual(C.nivelConfidencial({confidencialidad:'X'}),'interna');
+  assert.strictEqual(C.normNivelConfidencial('  PLANTILLA '),'plantilla');
+});
+test('restringida: no se exporta ni se transfiere',()=>{
+  assert.strictEqual(C.puedeExportarReceta('restringida'),false);
+  assert.strictEqual(C.puedeTransferirReceta('restringida'),false);
+  assert.strictEqual(C.requiereAutorizacionExport('restringida'),false);
+});
+test('interna: exporta con autorización, no se transfiere',()=>{
+  assert.strictEqual(C.puedeExportarReceta('interna'),true);
+  assert.strictEqual(C.requiereAutorizacionExport('interna'),true);
+  assert.strictEqual(C.puedeTransferirReceta('interna'),false);
+});
+test('plantilla y transferible: exportan sin autorización y se transfieren',()=>{
+  ['plantilla','transferible'].forEach(n=>{
+    assert.strictEqual(C.puedeExportarReceta(n),true,n);
+    assert.strictEqual(C.requiereAutorizacionExport(n),false,n);
+    assert.strictEqual(C.puedeTransferirReceta(n),true,n);
+  });
+});
+test('política devuelve el nivel normalizado y las tres acciones',()=>{
+  const p=C.politicaConfidencial('desconocido');
+  assert.strictEqual(p.nivel,'interna');
+  assert.strictEqual(p.exportar,'autorizar');
+  assert.strictEqual(p.transferir,'bloqueado');
+});
+
 console.log(`\n══════════════════════════════════`);
 console.log(`Resultado: ${pasadas} pasadas, ${falladas} falladas`);
 if(falladas>0)process.exit(1);

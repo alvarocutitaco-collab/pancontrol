@@ -377,6 +377,44 @@ function perteneceAOrg(entidad,orgId,orgPorDefecto){
   return String(o)===String(orgId);
 }
 
+// ── Confidencialidad y control de exportación / transferencia ───
+// Cada receta tiene un nivel de confidencialidad que decide si su
+// contenido puede SALIR del sistema (exportar a un archivo) o COPIARSE a
+// otra organización (transferir). El objetivo es proteger el "saber
+// hacer" del dueño: nadie debería llevarse una fórmula sin autorización.
+const NIVELES_CONFIDENCIALIDAD=[
+  {id:'interna',      label:'Interna',      desc:'Uso interno de la organización. Se puede exportar para respaldo o impresión, pero queda registrado; no se copia a otra organización.'},
+  {id:'restringida', label:'Restringida', desc:'Información sensible. Solo se ve dentro del sistema: no se exporta ni se copia.'},
+  {id:'plantilla',   label:'Plantilla',   desc:'Receta base sin secretos, pensada para enseñar o compartir. Se puede exportar y copiar a otra organización.'},
+  {id:'transferible',label:'Transferible',desc:'Autorizada expresamente a salir o copiarse a otra organización.'}
+];
+const NIVEL_CONFIDENCIAL_DEFAULT='interna';
+// Normaliza a un id válido; cualquier valor desconocido/ausente cae en el
+// nivel por defecto (interna) para que nunca queden recetas "sin nivel".
+function normNivelConfidencial(nivel){
+  const n=String(nivel||'').trim().toLowerCase();
+  return NIVELES_CONFIDENCIALIDAD.some(x=>x.id===n)?n:NIVEL_CONFIDENCIAL_DEFAULT;
+}
+// Nivel efectivo de una receta (default interna si no está definido).
+function nivelConfidencial(receta){return normNivelConfidencial(receta&&receta.confidencialidad)}
+// Política de un nivel. Cada acción puede quedar:
+//   'permitido'  → se hace directamente
+//   'autorizar'  → se permite, pero exige confirmación + registro de quién autoriza
+//   'bloqueado'  → no se permite
+function politicaConfidencial(nivel){
+  const n=normNivelConfidencial(nivel);
+  const M={
+    interna:      {exportar:'autorizar', transferir:'bloqueado'},
+    restringida: {exportar:'bloqueado', transferir:'bloqueado'},
+    plantilla:   {exportar:'permitido', transferir:'permitido'},
+    transferible:{exportar:'permitido', transferir:'permitido'}
+  };
+  return{nivel:n,...M[n]};
+}
+function puedeExportarReceta(nivel){return politicaConfidencial(nivel).exportar!=='bloqueado'}
+function requiereAutorizacionExport(nivel){return politicaConfidencial(nivel).exportar==='autorizar'}
+function puedeTransferirReceta(nivel){return politicaConfidencial(nivel).transferir==='permitido'}
+
 // ── Evaluación sensorial ────────────────────────────────────────
 // Atributos por defecto (configurables desde la UI si se desea).
 const ATRIBUTOS_SENSORIALES=['Apariencia','Color','Aroma','Sabor','Dulzor','Salinidad',
@@ -483,6 +521,9 @@ return{
   compararVersiones,
   ATRIBUTOS_SENSORIALES,resumenSensorial,
   compararLoteDorado,
-  perteneceAOrg
+  perteneceAOrg,
+  NIVELES_CONFIDENCIALIDAD,NIVEL_CONFIDENCIAL_DEFAULT,
+  normNivelConfidencial,nivelConfidencial,politicaConfidencial,
+  puedeExportarReceta,requiereAutorizacionExport,puedeTransferirReceta
 };
 });

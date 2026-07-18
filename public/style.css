@@ -807,3 +807,8 @@ body.viewer-mode .est-admin-only{display:none!important}
 .est-org-lbl{font-size:.82rem;font-weight:700;color:var(--brown)}
 .est-org-sel{padding:8px 12px;border:2px solid var(--gold);border-radius:var(--r3);background:var(--cream);color:var(--brown);font-weight:700;font-family:'DM Sans',sans-serif;font-size:.9rem;outline:none;min-width:160px}
 .est-org-warn{font-size:.72rem;color:var(--brown2);background:var(--cream2);border-left:3px solid var(--gold);border-radius:var(--r3);padding:6px 10px}
+.est-conf-box{background:var(--cream2);border:1.5px solid var(--gold);border-radius:var(--r3);padding:8px 12px;margin:8px 0}
+.est-conf-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.est-conf-row label{font-size:.82rem;font-weight:700;color:var(--brown);margin:0}
+.est-conf-sel{padding:6px 10px;border:2px solid var(--gold);border-radius:var(--r3);background:var(--cream);color:var(--brown);font-weight:700;font-family:'DM Sans',sans-serif;font-size:.85rem;outline:none}
+.est-conf-desc{font-size:.72rem;color:var(--brown2);margin-top:6px;line-height:1.4}

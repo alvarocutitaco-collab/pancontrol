@@ -8,7 +8,7 @@
 // ════════════════════════════════════════════════════════════════
 'use strict';
 
-const EST_STORES=['est_ingredientes','est_productos','est_recetas','est_versiones','est_ordenes','est_lotes','est_auditoria','est_organizaciones'];
+const EST_STORES=['est_ingredientes','est_productos','est_recetas','est_versiones','est_ordenes','est_lotes','est_auditoria','est_organizaciones','est_exportaciones'];
 const EST_OPERACIONES=['Pesado','Mezclado','Amasado','Reposo','Fermentación','Laminado','División','Formado','Rellenado','Horneado','Enfriado','Decoración','Empacado'];
 const EST_CRITERIOS_CALIDAD=['Peso','Tamaño','Color','Aroma','Sabor','Textura','Cocción','Presentación','Sellado','Empaque'];
 
@@ -72,6 +72,35 @@ function estOrgActiva(){
 }
 function estSetOrgActiva(id){localStorage.setItem('est_org_activa',String(id));estRenderOrgBar();estRefrescarVistaActual();}
 function estEnOrgActiva(entidad){return EstCore.perteneceAOrg(entidad,estOrgActiva(),estOrgDefault())}
+
+// ── Confidencialidad de recetas (control de exportación/transferencia) ──
+function estNivelConf(receta){return EstCore.nivelConfidencial(receta)}
+function estBadgeConf(nivel){
+  const n=EstCore.normNivelConfidencial(nivel);
+  const map={interna:['🔒 Interna','var(--blue)'],restringida:['⛔ Restringida','var(--red)'],
+    plantilla:['📄 Plantilla','var(--green)'],transferible:['↗ Transferible','var(--gold)']};
+  const[lbl,color]=map[n]||['🔒 Interna','var(--blue)'];
+  return`<span class="est-badge" style="background:${color}">${escHtml(lbl)}</span>`;
+}
+// Registra una salida de información (a archivo o a otra organización) en el
+// historial de exportaciones, además de la auditoría general.
+async function estRegistrarExport({receta,version,formato,destino,orgDestino,autorizadoPor}){
+  const reg={
+    fecha:new Date().toISOString(),usuario:estRol(),
+    recetaId:receta?receta.id:null,recetaNombre:receta?receta.nombre:'—',
+    versionId:version?version.id:null,versionNumero:version?version.numero:null,
+    nivel:EstCore.nivelConfidencial(receta),
+    formato:formato||null,destino:destino||'archivo',
+    organizacionOrigen:receta&&receta.organizacion!=null?receta.organizacion:estOrgActiva(),
+    organizacionDestino:orgDestino!=null?orgDestino:null,
+    autorizadoPor:autorizadoPor||null
+  };
+  try{
+    await dbAdd('est_exportaciones',reg);
+    await estAudit(destino==='transferencia'?'receta.transferir':'receta.exportar',
+      'est_recetas',reg.recetaId,null,reg);
+  }catch(e){console.error('registro de exportación',e)}
+}
 // Crea la organización por defecto la primera vez (no rompe datos previos).
 // Candado contra condición de carrera: si varias vistas la invocan casi a la
 // vez, todas esperan la MISMA creación en lugar de crear duplicados.
@@ -427,7 +456,7 @@ async function estBorrarProd(id){
 let estEd=null; // estado del editor: {recetaId, versionId, comps:[], pasos:[]}
 async function estRenderRecetas(){
   const el=document.getElementById('est-rec');if(!el)return;
-  await estLoad('est_recetas','est_versiones','est_productos','est_ingredientes','est_organizaciones');
+  await estLoad('est_recetas','est_versiones','est_productos','est_ingredientes','est_organizaciones','est_exportaciones');
   await estBootstrapOrgs();estRenderOrgBar();
   const recetas=(_estCache.est_recetas||[]).filter(estEnOrgActiva).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)));
   const prods=(_estCache.est_productos||[]);
@@ -444,13 +473,14 @@ async function estRenderRecetas(){
     <button class="btn bp btn-full" onclick="estCrearReceta()">➕ Crear receta (versión 1 en borrador)</button>
   </div>
   <div class="card"><div class="card-title">Recetas de ${escHtml(estOrgNombre(estOrgActiva()))} (${recetas.length})</div>
-    <div class="table-wrap"><table><thead><tr><th>Receta</th><th>Tipo</th><th>Versiones</th></tr></thead><tbody>
+    <div class="table-wrap"><table><thead><tr><th>Receta</th><th>Confid.</th><th>Tipo</th><th>Versiones</th></tr></thead><tbody>
     ${recetas.length?recetas.map(r=>{
       const vs=estVersionesDe(r.id);
-      return`<tr><td><b>${escHtml(r.nombre)}</b>${r.demo?' <span class="est-demo">DEMO</span>':''}</td>
+      return`<tr><td><b>${escHtml(r.nombre)}</b>${r.demo?' <span class="est-demo">DEMO</span>':''}${r.transferidaDe?' <span class="est-badge" style="background:var(--gray)">↙ recibida</span>':''}</td>
+      <td>${estBadgeConf(EstCore.nivelConfidencial(r))}</td>
       <td>${r.tipo==='sub'?'🥣 Subreceta':'🥖 Producto'}</td>
       <td>${vs.map(vr=>`<button class="btn bsec bsm" style="margin:2px" onclick="estAbrirVersion(${vr.id})">v${vr.numero} ${estBadge(vr.estado)}</button>`).join('')||'—'}</td></tr>`;
-    }).join(''):empty(3)}</tbody></table></div></div>
+    }).join(''):empty(4)}</tbody></table></div></div>
   ${(()=>{const comp=recetas.filter(r=>estVersionesDe(r.id).length>=2);return `
   <div class="card">
     <div class="card-title">🔍 Comparar versiones</div>
@@ -464,7 +494,34 @@ async function estRenderRecetas(){
     <div id="ec-result" style="margin-top:12px"></div>`
     :'<div class="est-aviso">Aún no hay recetas con 2 o más versiones. Crea una nueva versión desde una receta (botón "Crear nueva versión") para poder comparar.</div>'}
   </div>`;})()}
+  ${estHistorialExportHTML()}
   <div id="est-rec-editor"></div>`;
+}
+// Historial de exportaciones y transferencias que tocan la organización activa
+// (como origen o como destino). Muestra qué información ha salido del sistema.
+function estHistorialExportHTML(){
+  const org=estOrgActiva();
+  const eq=(a,b)=>String(a)===String(b);
+  const regs=(_estCache.est_exportaciones||[])
+    .filter(x=>eq(x.organizacionOrigen,org)||eq(x.organizacionDestino,org))
+    .sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)))
+    .slice(0,50);
+  const destTxt=x=>x.destino==='transferencia'
+    ?`↗ Transferida a <b>${escHtml(estOrgNombre(x.organizacionDestino))}</b>`
+    :`⬇ Archivo (${escHtml(x.formato||'—')})`;
+  return`
+  <div class="card">
+    <div class="card-title">🧾 Historial de exportaciones y transferencias</div>
+    ${regs.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Receta</th><th>Nivel</th><th>Salida</th><th>Autorizó</th></tr></thead><tbody>
+    ${regs.map(x=>`<tr>
+      <td>${escHtml(String(x.fecha||'').slice(0,16).replace('T',' '))}</td>
+      <td>${escHtml(x.recetaNombre||'—')}${x.versionNumero?` v${x.versionNumero}`:''}</td>
+      <td>${estBadgeConf(x.nivel)}</td>
+      <td>${destTxt(x)}</td>
+      <td>${escHtml(x.autorizadoPor||x.usuario||'—')}</td></tr>`).join('')}
+    </tbody></table></div>`
+    :'<div class="est-aviso">Todavía no se ha exportado ni transferido ninguna receta de esta organización. Aquí quedará registrada cada salida de información.</div>'}
+  </div>`;
 }
 // Nombre legible de un componente (ingrediente o subreceta).
 function estNombreComp(c){
@@ -545,7 +602,7 @@ async function estCrearReceta(){
   estAbrirVersion(versionId);
 }
 async function estAbrirVersion(versionId){
-  await estLoad('est_recetas','est_versiones','est_ingredientes','est_productos');
+  await estLoad('est_recetas','est_versiones','est_ingredientes','est_productos','est_organizaciones');
   const vr=(_estCache.est_versiones||[]).find(x=>x.id===versionId);if(!vr)return;
   const receta=estRec(vr.recetaId);
   estEd={recetaId:vr.recetaId,versionId,comps:JSON.parse(JSON.stringify(vr.componentes||[])),pasos:JSON.parse(JSON.stringify(vr.pasos||[]))};
@@ -555,10 +612,11 @@ async function estAbrirVersion(versionId){
   el.innerHTML=`
   <div class="card" id="est-editor-card">
     <div class="card-title" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
-      <span>📖 ${escHtml(receta.nombre)} — versión ${vr.numero} ${estBadge(vr.estado)}</span>
+      <span>📖 ${escHtml(receta.nombre)} — versión ${vr.numero} ${estBadge(vr.estado)} ${estBadgeConf(EstCore.nivelConfidencial(receta))}</span>
       <button class="btn bsec bsm" onclick="document.getElementById('est-rec-editor').innerHTML='';estEd=null">✖ Cerrar</button>
     </div>
     ${editable?'':'<div class="est-aviso">🔒 Esta versión no es editable'+(vr.estado==='aprobada'?' porque está APROBADA. Para cambiarla, crea una nueva versión.':'.')+'</div>'}
+    ${estConfidencialUI(receta)}
     <div class="fgrid">
       <div class="fg"><label>Salida por lote *</label><input type="number" id="ev-salida" min="0" step="any" value="${escAttr(vr.salida?.cantidad||'')}" ${ro}></div>
       <div class="fg"><label>Unidad de salida</label><select id="ev-salida-u" ${ro}>
@@ -585,6 +643,7 @@ async function estAbrirVersion(versionId){
       ${editable?`<button class="btn bsec" onclick="estCambiarEstadoVersion('archivada')">🗄 Archivar</button>`:''}
       <button class="btn bsec" onclick="estExportarReceta(${vr.id},'json')">⬇ JSON</button>
       <button class="btn bsec" onclick="estExportarReceta(${vr.id},'csv')">⬇ CSV</button>
+      ${estPuedeVer('config')?`<button class="btn bsec est-admin-only" onclick="estTransferirReceta(${vr.recetaId})">↗ Copiar a otra organización</button>`:''}
     </div>
     ${vr.fechaAprobacion?`<div style="font-size:.75rem;color:var(--gray);margin-top:8px">Aprobada el ${escHtml(String(vr.fechaAprobacion).slice(0,10))} por ${escHtml(vr.aprobadoPor||'—')}</div>`:''}
   </div>`;
@@ -763,11 +822,96 @@ async function estNuevaVersion(){
   toast('📄 Nueva versión v'+nueva.numero+' creada en borrador');
   await estRenderRecetas();estAbrirVersion(id);
 }
+// Panel de confidencialidad dentro del editor de receta. El nivel es de la
+// RECETA (no de la versión): decide si su contenido puede salir del sistema.
+function estConfidencialUI(receta){
+  const nivel=EstCore.nivelConfidencial(receta);
+  const pol=EstCore.politicaConfidencial(nivel);
+  const info=EstCore.NIVELES_CONFIDENCIALIDAD.find(x=>x.id===nivel);
+  const puede=estPuedeVer('receta.editar');
+  const accTxt=a=>a==='permitido'?'<span style="color:var(--green)">permitido</span>':a==='autorizar'?'<span style="color:var(--gold)">con autorización</span>':'<span style="color:var(--red)">bloqueado</span>';
+  return`
+  <div class="est-conf-box">
+    <div class="est-conf-row">
+      <label>🔐 Confidencialidad de la receta</label>
+      ${puede?`<select class="est-conf-sel est-admin-only" onchange="estSetConfidencialidad(${receta.id},this.value)">
+        ${EstCore.NIVELES_CONFIDENCIALIDAD.map(n=>`<option value="${n.id}"${n.id===nivel?' selected':''}>${escHtml(n.label)}</option>`).join('')}
+      </select>`:estBadgeConf(nivel)}
+    </div>
+    <div class="est-conf-desc">${escHtml(info?info.desc:'')}<br><b>Exportar a archivo:</b> ${accTxt(pol.exportar)} · <b>Copiar a otra organización:</b> ${accTxt(pol.transferir)}.</div>
+  </div>`;
+}
+async function estSetConfidencialidad(recetaId,nivel){
+  if(!estGuard('receta.editar'))return;
+  const receta=estRec(recetaId);if(!receta)return;
+  const antes=EstCore.nivelConfidencial(receta);
+  const nuevo=EstCore.normNivelConfidencial(nivel);
+  if(antes===nuevo)return;
+  await dbPut('est_recetas',{...receta,confidencialidad:nuevo});
+  await estAudit('receta.confidencialidad','est_recetas',recetaId,{confidencialidad:antes},{confidencialidad:nuevo});
+  await estLoad('est_recetas');
+  const lbl=(EstCore.NIVELES_CONFIDENCIALIDAD.find(x=>x.id===nuevo)||{label:nuevo}).label;
+  toast('🔐 Confidencialidad: '+lbl);
+  estAbrirVersion(estEd.versionId);
+}
+// Copia una receta (y todas sus versiones) a OTRA organización. Solo se
+// permite si la receta está autorizada (plantilla o transferible). La copia
+// queda como INTERNA en el destino para evitar reenvíos en cadena.
+async function estTransferirReceta(recetaId){
+  if(!estGuard('config'))return;
+  await estLoad('est_recetas','est_versiones','est_organizaciones');
+  const receta=estRec(recetaId);if(!receta)return;
+  const nivel=EstCore.nivelConfidencial(receta);
+  if(!EstCore.puedeTransferirReceta(nivel)){
+    toast('⛔ Esta receta ('+nivel+') no está autorizada a copiarse a otra organización. Márcala como "Plantilla" o "Transferible" solo si tienes autorización expresa.','var(--red)');
+    return;
+  }
+  const origen=receta.organizacion!=null?receta.organizacion:estOrgActiva();
+  const destinos=estOrgs().filter(o=>String(o.id)!==String(origen));
+  if(!destinos.length){toast('⚠ No hay otra organización de destino. Crea una primero en la barra 🏢 Organización.','var(--gold)');return;}
+  const lista=destinos.map((o,i)=>`${i+1}) ${o.nombre}`).join('\n');
+  const sel=prompt('Copiar "'+receta.nombre+'" a otra organización.\nEscribe el número de la organización destino:\n'+lista);
+  if(sel==null)return;
+  const destino=destinos[Number(sel)-1];
+  if(!destino){toast('⚠ Selección inválida','var(--red)');return;}
+  const quien=prompt('Autorización EXPRESA de transferencia.\nEscribe tu nombre para registrar quién autoriza la copia:');
+  if(quien==null)return;
+  if(!confirm('¿Copiar la receta "'+receta.nombre+'" a "'+destino.nombre+'"?\nLa copia quedará como INTERNA en la organización destino.'))return;
+  const versionVigente=estVersionVigente(receta.id);
+  const ahora=new Date().toISOString();
+  const nuevoRecId=await dbAdd('est_recetas',{
+    nombre:receta.nombre,tipo:receta.tipo,productoId:null,
+    organizacion:destino.id,confidencialidad:'interna',
+    transferidaDe:{organizacion:origen,recetaId:receta.id,fecha:ahora,por:quien.trim()||estRol()},
+    createdAt:ahora
+  });
+  const versiones=(_estCache.est_versiones||[]).filter(x=>x.recetaId===receta.id);
+  for(const vr of versiones){
+    const copia={...JSON.parse(JSON.stringify(vr)),recetaId:nuevoRecId,createdAt:ahora,updatedAt:ahora};
+    delete copia.id;
+    await dbAdd('est_versiones',copia);
+  }
+  await estRegistrarExport({receta,version:versionVigente,formato:'transferencia',destino:'transferencia',orgDestino:destino.id,autorizadoPor:quien.trim()||estRol()});
+  await estLoad('est_recetas','est_versiones');
+  toast('↗ Receta copiada a '+destino.nombre+' (queda como interna allí)');
+  estRenderRecetas();
+}
 async function estExportarReceta(versionId,formato){
   if(!estGuard('exportar'))return;
   await estLoad('est_versiones','est_recetas');
   const vr=(_estCache.est_versiones||[]).find(x=>x.id===versionId);if(!vr)return;
   const receta=estRec(vr.recetaId);
+  const nivel=EstCore.nivelConfidencial(receta);
+  if(!EstCore.puedeExportarReceta(nivel)){
+    toast('⛔ Receta RESTRINGIDA: no se puede exportar. Cambia su confidencialidad solo si tienes autorización.','var(--red)');
+    return;
+  }
+  let autorizadoPor=null;
+  if(EstCore.requiereAutorizacionExport(nivel)){
+    const quien=prompt('Esta receta es INTERNA. La exportación quedará registrada en el historial.\nEscribe tu nombre para autorizar la exportación:');
+    if(quien==null)return;
+    autorizadoPor=quien.trim()||estRol();
+  }
   let blob,nombre;
   if(formato==='csv'){
     const filas=[['Receta',receta.nombre],['Versión',vr.numero],['Estado',vr.estado],['Salida',`${vr.salida?.cantidad} ${vr.salida?.unidad}`],[],
@@ -784,7 +928,8 @@ async function estExportarReceta(versionId,formato){
     nombre=`Receta_${receta.nombre}_v${vr.numero}.json`;
   }
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nombre.replace(/[^\w.\-]+/g,'_');a.click();URL.revokeObjectURL(a.href);
-  toast('⬇ Receta exportada');
+  await estRegistrarExport({receta,version:vr,formato,destino:'archivo',autorizadoPor});
+  toast('⬇ Receta exportada (registrada en el historial)');
 }
 
 // ════════════════════════════════════════════════════════════════
