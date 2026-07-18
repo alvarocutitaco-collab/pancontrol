@@ -125,7 +125,9 @@ catálogos, caja ni autenticación.
 - `est_lotes` — codigo, fecha, ordenId, productoId, versionNumero,
   responsable, cantidadProducida/Aprobada/Rechazada, vencimiento (desde vida
   útil del producto), estado (pendiente/aprobado/aprobado_obs/retenido/
-  rechazado), obs. Diseñado para relacionarse a futuro con lotes de insumos.
+  rechazado), obs, `costo:{fecha,total,costoPorUnidad,completo,faltantes,
+  detalle,congelado}` (costo del lote congelado a la fecha, ver Incremento 5).
+  Diseñado para relacionarse a futuro con lotes de insumos.
 - `est_auditoria` — fecha, usuario (rol), acción, entidad, entidadId,
   antes/después, motivo.
 - `est_organizaciones` — nombre, createdAt. Empresa propietaria de recetas y
@@ -393,6 +395,26 @@ formaliza quién está certificado para producir cada producto.
   end-to-end en navegador (bloqueo con evidencia insuficiente, aprobación al
   cumplir, alta de operador y certificación) sin errores JS.
 
-> Pendiente afín (Incremento 5): desviaciones/acciones correctivas (CAPA),
-> catálogo de maquinaria y cuellos de botella, y costos por lote (congelar costo
-> a la fecha).
+## 18. Incremento 5 — parte A: Costo por lote (congelado a la fecha)
+
+Calcula cuánto costó cada lote en insumos y **congela** ese costo a la fecha de
+producción, para que un cambio de precio posterior no altere el histórico.
+
+- **Núcleo puro** (`produccion-core.js`, con pruebas): `costoLote(consumos,
+  costosPorRef, unidadesBuenas)` → `{total, detalle, costoPorUnidad, completo,
+  faltantes}`. El costo unitario se pasa explícito (congelado); marca los
+  ingredientes sin costo definido y no rompe si faltan.
+- **Congelación al cerrar la orden** (`estCerrarOrden`): al terminar una
+  producción se toma el consumo REAL y los costos de insumos vigentes ese día y
+  se guardan en `est_lotes.costo` (con `congelado:true`). Aunque después suba el
+  precio de la harina, el costo de ese lote no cambia.
+- **UI**: sección "💰 Costo del lote" en el detalle de la orden (total, costo por
+  unidad buena y desglose por ingrediente) y columna "Costo (S/.)" en la lista de
+  lotes. Para lotes anteriores sin costo, botón "Calcular con precios actuales";
+  y "🔄 Recalcular" vuelve a congelar con los precios de hoy.
+- **Pruebas**: núcleo cubre total, costo por unidad y faltantes. Verificado
+  end-to-end en navegador: costo congelado no cambia al subir un precio, y el
+  recálculo lo vuelve a congelar. Sin errores JS.
+
+> Pendientes del Incremento 5 (próximas partes): B) desviaciones/acciones
+> correctivas (CAPA); C) catálogo de maquinaria y cuellos de botella.

@@ -424,6 +424,35 @@ function perteneceAOrg(entidad,orgId,orgPorDefecto){
   return String(o)===String(orgId);
 }
 
+// ── Costo por lote (congelado a la fecha de producción) ─────────
+// Calcula el costo de un lote a partir del consumo REAL y de los costos
+// unitarios (S/. por unidad base) de cada ingrediente. Los costos se pasan
+// explícitos para poder CONGELARLOS a la fecha: aunque el precio suba después,
+// el costo histórico del lote no cambia.
+//   consumos:       [{refId,nombre,unidadBase,cantidadBase}]
+//   costosPorRef:   { refId: costoPorUnidadBase }
+//   unidadesBuenas: para el costo por unidad producida (sellable)
+function costoLote(consumos,costosPorRef,unidadesBuenas){
+  const cp=costosPorRef||{};
+  const detalle=(consumos||[]).map(c=>{
+    const cant=Number(c.cantidadBase)||0;
+    const cu=Number(cp[c.refId]);
+    const costoUnit=Number.isFinite(cu)?cu:null;
+    const costo=costoUnit!=null?cant*costoUnit:null;
+    return{refId:c.refId,nombre:c.nombre,unidadBase:c.unidadBase,cantidadBase:cant,costoUnit,costo};
+  });
+  const total=detalle.reduce((s,d)=>s+(d.costo||0),0);
+  const faltantes=detalle.filter(d=>d.costoUnit==null&&d.cantidadBase>0).map(d=>d.nombre);
+  const u=Number(unidadesBuenas);
+  return{
+    total,
+    detalle,
+    costoPorUnidad:(u>0)?total/u:null,
+    completo:faltantes.length===0,
+    faltantes
+  };
+}
+
 // ── Confidencialidad y control de exportación / transferencia ───
 // Cada receta tiene un nivel de confidencialidad que decide si su
 // contenido puede SALIR del sistema (exportar a un archivo) o COPIARSE a
@@ -604,6 +633,7 @@ return{
   statsPesos,parseMuestras,
   validarRegistroReal,duracionMin,calcularKpis,
   clasificarValor,validarEspecificacion,resumenEspecificacion,
+  costoLote,
   snapshotVersion,
   PERMISOS,puede,genCodigo,
   compararVersiones,

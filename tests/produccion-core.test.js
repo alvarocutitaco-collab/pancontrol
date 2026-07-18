@@ -424,6 +424,31 @@ test('serie vacía no rompe',()=>{
   assert.strictEqual(r.n,0);assert.strictEqual(r.cumplimientoPct,null);
 });
 
+console.log('\n■ Costo por lote (congelado a la fecha)');
+test('calcula el costo total y por unidad a partir del consumo real',()=>{
+  const consumos=[
+    {refId:1,nombre:'Harina',unidadBase:'g',cantidadBase:1000},
+    {refId:2,nombre:'Azúcar',unidadBase:'g',cantidadBase:200}
+  ];
+  const costos={1:0.002,2:0.004};   // S/. por gramo
+  const r=C.costoLote(consumos,costos,100);
+  casi(r.total,1000*0.002+200*0.004);   // 2 + 0.8 = 2.8
+  casi(r.costoPorUnidad,2.8/100);
+  assert.strictEqual(r.completo,true);
+  assert.strictEqual(r.detalle[0].costo,2);
+});
+test('marca faltantes cuando un ingrediente no tiene costo',()=>{
+  const consumos=[{refId:1,nombre:'Harina',unidadBase:'g',cantidadBase:1000},{refId:2,nombre:'Sal',unidadBase:'g',cantidadBase:20}];
+  const r=C.costoLote(consumos,{1:0.002},100);   // sin costo de Sal
+  assert.strictEqual(r.completo,false);
+  assert.deepStrictEqual(r.faltantes,['Sal']);
+  casi(r.total,2);                                // solo cuenta lo que tiene costo
+});
+test('sin unidades buenas, costo por unidad es null',()=>{
+  const r=C.costoLote([{refId:1,cantidadBase:100}],{1:0.01},0);
+  casi(r.total,1);assert.strictEqual(r.costoPorUnidad,null);
+});
+
 console.log('\n■ Validación cruzada y certificación de operadores');
 test('cuenta lotes y operadores distintos de una receta',()=>{
   const ords=[
