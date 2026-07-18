@@ -812,3 +812,5 @@ body.viewer-mode .est-admin-only{display:none!important}
 .est-conf-row label{font-size:.82rem;font-weight:700;color:var(--brown);margin:0}
 .est-conf-sel{padding:6px 10px;border:2px solid var(--gold);border-radius:var(--r3);background:var(--cream);color:var(--brown);font-weight:700;font-family:'DM Sans',sans-serif;font-size:.85rem;outline:none}
 .est-conf-desc{font-size:.72rem;color:var(--brown2);margin-top:6px;line-height:1.4}
+.est-chart{width:100%;overflow-x:auto}
+.est-chart svg{width:100%;height:auto;min-width:280px;display:block}
