@@ -462,6 +462,46 @@ function puedeExportarReceta(nivel){return politicaConfidencial(nivel).exportar!
 function requiereAutorizacionExport(nivel){return politicaConfidencial(nivel).exportar==='autorizar'}
 function puedeTransferirReceta(nivel){return politicaConfidencial(nivel).transferir==='permitido'}
 
+// ── Validación cruzada y certificación de operadores ───────────
+// Antes de aprobar una receta como ESTÁNDAR se exige evidencia mínima: que se
+// haya producido en varios lotes y por varios operadores distintos. Así un
+// estándar no se aprueba con una sola prueba o de una sola persona.
+const REQUISITOS_ESTANDAR_DEFAULT={minLotes:3,minOperadores:2};
+// Evidencia de producción de una receta: cuántos lotes (órdenes terminadas) y
+// cuántos operadores distintos la han producido. Ignora responsables vacíos y
+// no distingue mayúsculas/espacios.
+function evidenciaEstandar(ordenes,recetaId){
+  const terminadas=(ordenes||[]).filter(o=>o&&o.estado==='terminada'&&String(o.recetaId)===String(recetaId));
+  const ops=new Set();
+  terminadas.forEach(o=>{
+    const r=String((o.real&&o.real.responsable)||o.responsable||'').trim().toLowerCase();
+    if(r)ops.add(r);
+  });
+  return{lotes:terminadas.length,operadores:ops.size,listaOperadores:[...ops]};
+}
+// ¿La evidencia cumple los requisitos para aprobar como estándar?
+// Devuelve qué falta, para poder mostrarlo o bloquear la aprobación.
+function validacionCruzada(evidencia,requisitos){
+  const req={...REQUISITOS_ESTANDAR_DEFAULT,...(requisitos||{})};
+  const e=evidencia||{lotes:0,operadores:0};
+  const minLotes=Math.max(0,Number(req.minLotes)||0);
+  const minOperadores=Math.max(0,Number(req.minOperadores)||0);
+  const faltanLotes=Math.max(0,minLotes-(Number(e.lotes)||0));
+  const faltanOperadores=Math.max(0,minOperadores-(Number(e.operadores)||0));
+  return{ok:faltanLotes===0&&faltanOperadores===0,faltanLotes,faltanOperadores,minLotes,minOperadores};
+}
+// Matriz de certificación de operadores.
+const ESTADOS_CERTIFICACION=['no','formacion','certificado'];
+function normEstadoCert(estado){
+  const e=String(estado||'').trim().toLowerCase();
+  return ESTADOS_CERTIFICACION.includes(e)?e:'no';
+}
+// Estado de certificación de un operador para un producto (default 'no').
+function estadoCertificacion(certs,operadorId,productoId){
+  const c=(certs||[]).find(x=>String(x.operadorId)===String(operadorId)&&String(x.productoId)===String(productoId));
+  return c?normEstadoCert(c.estado):'no';
+}
+
 // ── Evaluación sensorial ────────────────────────────────────────
 // Atributos por defecto (configurables desde la UI si se desea).
 const ATRIBUTOS_SENSORIALES=['Apariencia','Color','Aroma','Sabor','Dulzor','Salinidad',
@@ -572,6 +612,8 @@ return{
   perteneceAOrg,
   NIVELES_CONFIDENCIALIDAD,NIVEL_CONFIDENCIAL_DEFAULT,
   normNivelConfidencial,nivelConfidencial,politicaConfidencial,
-  puedeExportarReceta,requiereAutorizacionExport,puedeTransferirReceta
+  puedeExportarReceta,requiereAutorizacionExport,puedeTransferirReceta,
+  REQUISITOS_ESTANDAR_DEFAULT,evidenciaEstandar,validacionCruzada,
+  ESTADOS_CERTIFICACION,normEstadoCert,estadoCertificacion
 };
 });

@@ -8,7 +8,7 @@
 // ════════════════════════════════════════════════════════════════
 'use strict';
 
-const EST_STORES=['est_ingredientes','est_productos','est_recetas','est_versiones','est_ordenes','est_lotes','est_auditoria','est_organizaciones','est_exportaciones','est_accesos','est_mediciones'];
+const EST_STORES=['est_ingredientes','est_productos','est_recetas','est_versiones','est_ordenes','est_lotes','est_auditoria','est_organizaciones','est_exportaciones','est_accesos','est_mediciones','est_operadores','est_certificaciones'];
 const EST_OPERACIONES=['Pesado','Mezclado','Amasado','Reposo','Fermentación','Laminado','División','Formado','Rellenado','Horneado','Enfriado','Decoración','Empacado'];
 const EST_CRITERIOS_CALIDAD=['Peso','Tamaño','Color','Aroma','Sabor','Textura','Cocción','Presentación','Sellado','Empaque'];
 
@@ -140,7 +140,7 @@ async function estBootstrapOrgs(){
 function estRefrescarVistaActual(){
   // Re-renderiza la pestaña visible tras cambiar de organización.
   const activa=document.querySelector('#page-estandarizacion .tab.active')?.dataset.tab;
-  ({panel:estRenderPanel,ing:estRenderIngredientes,prod:estRenderProductos,rec:estRenderRecetas,calc:estRenderCalc,ord:estRenderOrdenes,control:estRenderControl}[activa]||(()=>{}))();
+  ({panel:estRenderPanel,ing:estRenderIngredientes,prod:estRenderProductos,rec:estRenderRecetas,calc:estRenderCalc,ord:estRenderOrdenes,control:estRenderControl,oper:estRenderOperadores}[activa]||(()=>{}))();
 }
 function estRenderOrgBar(){
   const el=document.getElementById('est-orgbar');if(!el)return;
@@ -651,7 +651,7 @@ async function estCrearReceta(){
   estAbrirVersion(versionId);
 }
 async function estAbrirVersion(versionId){
-  await estLoad('est_recetas','est_versiones','est_ingredientes','est_productos','est_organizaciones');
+  await estLoad('est_recetas','est_versiones','est_ingredientes','est_productos','est_organizaciones','est_ordenes');
   const vr=(_estCache.est_versiones||[]).find(x=>x.id===versionId);if(!vr)return;
   const receta=estRec(vr.recetaId);
   estEd={recetaId:vr.recetaId,versionId,comps:JSON.parse(JSON.stringify(vr.componentes||[])),pasos:JSON.parse(JSON.stringify(vr.pasos||[]))};
@@ -666,6 +666,7 @@ async function estAbrirVersion(versionId){
     </div>
     ${editable?'':'<div class="est-aviso">🔒 Esta versión no es editable'+(vr.estado==='aprobada'?' porque está APROBADA. Para cambiarla, crea una nueva versión.':'.')+'</div>'}
     ${estConfidencialUI(receta)}
+    ${estValidacionCruzadaUI(receta)}
     <div class="fgrid">
       <div class="fg"><label>Salida por lote *</label><input type="number" id="ev-salida" min="0" step="any" value="${escAttr(vr.salida?.cantidad||'')}" ${ro}></div>
       <div class="fg"><label>Unidad de salida</label><select id="ev-salida-u" ${ro}>
@@ -841,7 +842,22 @@ async function estAprobarVersion(){
   const guardada=await estGuardarVersion(true);if(!guardada)return;
   const errores=EstCore.validarVersion({...guardada,componentes:guardada.componentes.map(c=>({...c,cantidad:c.cantidadBase}))});
   if(errores.length)return toast('⚠ '+errores[0],'var(--red)');
-  if(!confirm('¿Aprobar esta versión? Una vez aprobada NO podrá modificarse; para cambios habrá que crear una nueva versión.'))return;
+  // Validación cruzada: exige un mínimo de lotes y operadores antes de aprobar.
+  await estLoad('est_ordenes');
+  const receta=estRec(estEd.recetaId);
+  const ev=EstCore.evidenciaEstandar(_estCache.est_ordenes||[],estEd.recetaId);
+  const vc=EstCore.validacionCruzada(ev,receta&&receta.reqEstandar);
+  let excepcion=null;
+  if(!vc.ok){
+    const faltan=[];
+    if(vc.faltanLotes)faltan.push(`${vc.faltanLotes} lote(s) terminado(s) más`);
+    if(vc.faltanOperadores)faltan.push(`${vc.faltanOperadores} operador(es) distinto(s) más`);
+    const msg=`⛔ Validación cruzada incompleta.\nSe requieren ${vc.minLotes} lote(s) y ${vc.minOperadores} operador(es); hay ${ev.lotes} lote(s) y ${ev.operadores} operador(es).\nFaltan: ${faltan.join(' y ')}.\n\n¿Aprobar de todos modos como EXCEPCIÓN? Quedará registrado.`;
+    if(!confirm(msg))return;
+    excepcion={faltanLotes:vc.faltanLotes,faltanOperadores:vc.faltanOperadores,lotes:ev.lotes,operadores:ev.operadores,por:estRol(),fecha:new Date().toISOString()};
+  }else{
+    if(!confirm('¿Aprobar esta versión? Una vez aprobada NO podrá modificarse; para cambios habrá que crear una nueva versión.'))return;
+  }
   // La versión aprobada anterior pasa a "reemplazada"
   for(const otra of estVersionesDe(estEd.recetaId).filter(x=>x.estado==='aprobada'&&x.id!==vr.id)){
     otra.estado='reemplazada';otra.updatedAt=new Date().toISOString();
@@ -852,9 +868,10 @@ async function estAprobarVersion(){
   guardada.fechaAprobacion=new Date().toISOString();
   guardada.aprobadoPor=estRol();
   guardada.updatedAt=guardada.fechaAprobacion;
+  if(excepcion)guardada.aprobacionExcepcion=excepcion;
   await dbPut('est_versiones',guardada);
-  await estAudit('receta.version.aprobar','est_versiones',vr.id,{estado:vr.estado},{estado:'aprobada'},guardada.motivo);
-  toast('✅ Versión aprobada');
+  await estAudit(excepcion?'receta.version.aprobar_excepcion':'receta.version.aprobar','est_versiones',vr.id,{estado:vr.estado},{estado:'aprobada',excepcion:excepcion||undefined},guardada.motivo);
+  toast(excepcion?'✅ Versión aprobada (excepción registrada)':'✅ Versión aprobada');
   await estRenderRecetas();estAbrirVersion(vr.id);
 }
 async function estNuevaVersion(){
@@ -901,6 +918,41 @@ async function estSetConfidencialidad(recetaId,nivel){
   await estLoad('est_recetas');
   const lbl=(EstCore.NIVELES_CONFIDENCIALIDAD.find(x=>x.id===nuevo)||{label:nuevo}).label;
   toast('🔐 Confidencialidad: '+lbl);
+  estAbrirVersion(estEd.versionId);
+}
+// Panel de validación cruzada: evidencia de producción (lotes/operadores) frente
+// a los requisitos mínimos para aprobar la receta como estándar.
+function estValidacionCruzadaUI(receta){
+  const req={...EstCore.REQUISITOS_ESTANDAR_DEFAULT,...(receta.reqEstandar||{})};
+  const ev=EstCore.evidenciaEstandar(_estCache.est_ordenes||[],receta.id);
+  const vc=EstCore.validacionCruzada(ev,req);
+  const admin=estPuedeVer('receta.aprobar');
+  const chip=(n,min,lbl)=>`<span class="est-badge" style="background:${n>=min?'var(--green)':'var(--red)'}">${lbl}: ${n}/${min}</span>`;
+  return `
+  <div class="est-conf-box">
+    <div class="est-conf-row">
+      <label>🎓 Validación cruzada para aprobar como estándar</label>
+      ${chip(ev.lotes,vc.minLotes,'Lotes')} ${chip(ev.operadores,vc.minOperadores,'Operadores')}
+      ${vc.ok?'<span class="est-badge" style="background:var(--green)">✅ Cumple</span>':'<span class="est-badge" style="background:var(--gold)">Faltan requisitos</span>'}
+    </div>
+    ${admin?`<div class="est-conf-row" style="margin-top:6px;gap:6px">
+      <span style="font-size:.8rem;color:var(--brown)">Mínimos:</span>
+      <span style="font-size:.78rem">Lotes <input type="number" min="0" step="1" id="ev-minlotes" value="${escAttr(req.minLotes)}" style="width:58px"></span>
+      <span style="font-size:.78rem">Operadores <input type="number" min="0" step="1" id="ev-minops" value="${escAttr(req.minOperadores)}" style="width:58px"></span>
+      <button class="btn bsec bsm est-admin-only" onclick="estGuardarReqEstandar(${receta.id})">Guardar mínimos</button>
+    </div>`:''}
+    <div class="est-conf-desc">Un estándar debe haberse producido en al menos ${vc.minLotes} lote(s) terminado(s) y por ${vc.minOperadores} operador(es) distinto(s). Ya lo produjeron: ${ev.operadores?escHtml(ev.listaOperadores.join(', ')):'—'}.</div>
+  </div>`;
+}
+async function estGuardarReqEstandar(recetaId){
+  if(!estGuard('receta.aprobar'))return;
+  const minLotes=Math.max(0,parseInt(v('ev-minlotes'),10)||0);
+  const minOperadores=Math.max(0,parseInt(v('ev-minops'),10)||0);
+  const receta=estRec(recetaId);if(!receta)return;
+  await dbPut('est_recetas',{...receta,reqEstandar:{minLotes,minOperadores}});
+  await estAudit('receta.reqEstandar','est_recetas',recetaId,receta.reqEstandar||null,{minLotes,minOperadores});
+  await estLoad('est_recetas');
+  toast('💾 Requisitos de estándar actualizados');
   estAbrirVersion(estEd.versionId);
 }
 // Copia una receta (y todas sus versiones) a OTRA organización. Solo se
@@ -1808,6 +1860,115 @@ async function estBorrarMedicion(id){
 }
 
 // ════════════════════════════════════════════════════════════════
+// OPERADORES Y MATRIZ DE CERTIFICACIÓN
+// ════════════════════════════════════════════════════════════════
+// Registra a los operadores (maestros/ayudantes) y en qué productos están
+// certificados. Se cruza con la producción real: quién ya elaboró cada producto.
+let _estOperEdit=null;
+function estOperadores(){return(_estCache.est_operadores||[]).slice().sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)))}
+function estCertLbl(e){return e==='certificado'?'✅ Certificado':e==='formacion'?'🟡 En formación':'⬜ No'}
+function estCertColor(e){return e==='certificado'?'var(--green)':e==='formacion'?'var(--gold)':'var(--gray)'}
+// Quién ha producido realmente cada producto (de las órdenes terminadas):
+// map productoId -> Set(nombre de responsable en minúscula).
+function estProductoresPorProducto(){
+  const m={};
+  (_estCache.est_ordenes||[]).filter(o=>o.estado==='terminada').forEach(o=>{
+    const nom=String((o.real&&o.real.responsable)||o.responsable||'').trim().toLowerCase();
+    if(!o.productoId||!nom)return;
+    (m[o.productoId]=m[o.productoId]||new Set()).add(nom);
+  });
+  return m;
+}
+async function estRenderOperadores(){
+  const el=document.getElementById('est-oper');if(!el)return;
+  await estLoad('est_operadores','est_certificaciones','est_productos','est_ordenes','est_organizaciones');
+  await estBootstrapOrgs();estRenderOrgBar();
+  const admin=estPuedeVer('prod.crud');
+  const opers=estOperadores();
+  const prods=(_estCache.est_productos||[]).filter(estEnOrgActiva).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)));
+  const certs=_estCache.est_certificaciones||[];
+  const productores=estProductoresPorProducto();
+  const editar=_estOperEdit?estOperadores().find(o=>o.id===_estOperEdit):null;
+  el.innerHTML=`
+  ${admin?`<div class="card form-card">
+    <div class="card-title">${editar?'Editar operador':'Nuevo operador'}</div>
+    <div class="fgrid">
+      <div class="fg"><label>Nombre *</label><input type="text" id="eo-nombre" value="${escAttr(editar?editar.nombre:'')}" placeholder="Ej.: María Pérez"></div>
+      <div class="fg"><label>Rol / puesto</label><input type="text" id="eo-rol" value="${escAttr(editar?editar.rol||'':'')}" placeholder="Maestro, ayudante, hornero…"></div>
+      <div class="fg"><label>Estado</label><select id="eo-activo"><option value="1"${!editar||editar.activo!==false?' selected':''}>Activo</option><option value="0"${editar&&editar.activo===false?' selected':''}>Inactivo</option></select></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn bp" style="flex:1;justify-content:center" onclick="estGuardarOperador()">💾 ${editar?'Guardar cambios':'Agregar operador'}</button>
+      ${editar?'<button class="btn bsec" onclick="_estOperEdit=null;estRenderOperadores()">Cancelar</button>':''}
+    </div>
+  </div>`:''}
+  <div class="card"><div class="card-title">Operadores de ${escHtml(estOrgNombre(estOrgActiva()))} (${opers.length})</div>
+    ${opers.length?`<div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Rol</th><th>Estado</th>${admin?'<th>✏️</th><th>🗑</th>':''}</tr></thead><tbody>
+      ${opers.map(o=>`<tr><td><b>${escHtml(o.nombre)}</b></td><td>${escHtml(o.rol||'')}</td><td>${o.activo===false?'<span class="est-badge" style="background:var(--gray)">Inactivo</span>':'<span class="est-badge" style="background:var(--green)">Activo</span>'}</td>
+        ${admin?`<td><button class="edit-btn" onclick="estEditarOperador(${o.id})">✏️</button></td><td><button class="del-btn" onclick="estBorrarOperador(${o.id})">🗑</button></td>`:''}</tr>`).join('')}
+    </tbody></table></div>`:'<div class="est-aviso">Aún no hay operadores. Agrégalos para certificarlos por producto.</div>'}
+  </div>
+  <div class="card">
+    <div class="card-title">🎓 Matriz de certificación (operador × producto)</div>
+    <div class="est-aviso">✅ Certificado · 🟡 En formación · ⬜ No. El punto <span style="color:var(--blue)">●</span> indica que ya produjo ese producto (según órdenes terminadas).</div>
+    ${opers.filter(o=>o.activo!==false).length&&prods.length?`<div class="table-wrap"><table><thead><tr><th>Operador</th>${prods.map(p=>`<th>${escHtml(p.nombre)}</th>`).join('')}</tr></thead><tbody>
+      ${opers.filter(o=>o.activo!==false).map(o=>`<tr><td><b>${escHtml(o.nombre)}</b></td>
+        ${prods.map(p=>{const e=EstCore.estadoCertificacion(certs,o.id,p.id);const produjo=(productores[p.id]||new Set()).has(String(o.nombre).trim().toLowerCase());
+          return`<td style="text-align:center;background:${e==='no'?'':e==='formacion'?'#FBF3E0':'#EAF5EA'}">
+            ${admin?`<select onchange="estSetCert(${o.id},${p.id},this.value)" style="font-size:.75rem">
+              ${EstCore.ESTADOS_CERTIFICACION.map(s=>`<option value="${s}"${e===s?' selected':''}>${estCertLbl(s)}</option>`).join('')}
+            </select>`:`<span class="est-badge" style="background:${estCertColor(e)}">${estCertLbl(e)}</span>`}
+            ${produjo?'<div style="color:var(--blue);font-size:.7rem" title="Ya produjo este producto">● produjo</div>':''}</td>`;}).join('')}
+      </tr>`).join('')}
+    </tbody></table></div>`:'<div class="est-aviso">Necesitas al menos un operador activo y un producto para usar la matriz.</div>'}
+  </div>`;
+  _estOperEdit=editar?_estOperEdit:null;
+}
+async function estGuardarOperador(){
+  if(!estGuard('prod.crud'))return;
+  const nombre=v('eo-nombre').trim();
+  if(!nombre)return toast('⚠ El nombre es obligatorio','var(--red)');
+  const rol=v('eo-rol').trim();
+  const activo=v('eo-activo')==='1';
+  if(_estOperEdit){
+    const antes=estOperadores().find(o=>o.id===_estOperEdit);
+    await dbPut('est_operadores',{...antes,nombre,rol,activo});
+    await estAudit('operador.editar','est_operadores',_estOperEdit,antes,{nombre,rol,activo});
+    _estOperEdit=null;toast('✅ Operador actualizado');
+  }else{
+    if(estOperadores().some(o=>o.nombre.toLowerCase()===nombre.toLowerCase()))return toast('⚠ Ya existe un operador con ese nombre','var(--gold)');
+    const id=await dbAdd('est_operadores',{nombre,rol,activo,organizacion:estOrgActiva(),createdAt:new Date().toISOString()});
+    await estAudit('operador.crear','est_operadores',id,null,{nombre,rol});
+    toast('✅ Operador agregado');
+  }
+  await estLoad('est_operadores');estRenderOperadores();
+}
+function estEditarOperador(id){_estOperEdit=id;estRenderOperadores();window.scrollTo(0,0);document.getElementById('main').scrollTop=0;}
+async function estBorrarOperador(id){
+  if(!estGuard('prod.crud'))return;
+  const o=estOperadores().find(x=>x.id===id);
+  if(!confirm(`¿Eliminar al operador "${o?o.nombre:id}"? También se quitan sus certificaciones.`))return;
+  for(const c of(_estCache.est_certificaciones||[]).filter(c=>c.operadorId===id))await dbDel('est_certificaciones',c.id);
+  await dbDel('est_operadores',id);
+  await estAudit('operador.eliminar','est_operadores',id,o,null);
+  await estLoad('est_operadores','est_certificaciones');
+  toast('🗑 Operador eliminado');estRenderOperadores();
+}
+async function estSetCert(operadorId,productoId,estado){
+  if(!estGuard('prod.crud'))return;
+  const e=EstCore.normEstadoCert(estado);
+  const existente=(_estCache.est_certificaciones||[]).find(c=>c.operadorId===operadorId&&c.productoId===productoId);
+  const ahora=new Date().toISOString();
+  if(existente){
+    await dbPut('est_certificaciones',{...existente,estado:e,fecha:ahora,evaluadoPor:estRol()});
+  }else{
+    await dbAdd('est_certificaciones',{operadorId,productoId,estado:e,fecha:ahora,evaluadoPor:estRol(),organizacion:estOrgActiva()});
+  }
+  await estAudit('certificacion.set','est_certificaciones',operadorId,null,{productoId,estado:e});
+  await estLoad('est_certificaciones');estRenderOperadores();
+}
+
+// ════════════════════════════════════════════════════════════════
 // RESPALDO E IMPORTACIÓN DEL MÓDULO
 // ════════════════════════════════════════════════════════════════
 async function estExportarModulo(){
@@ -1938,5 +2099,5 @@ async function estCargarDemo(){
 // ════════════════════════════════════════════════════════════════
 function estSwitchTab(tab,el){
   switchTab('est',tab,el);
-  ({panel:estRenderPanel,ing:estRenderIngredientes,prod:estRenderProductos,rec:estRenderRecetas,calc:estRenderCalc,ord:estRenderOrdenes,control:estRenderControl})[tab]?.();
+  ({panel:estRenderPanel,ing:estRenderIngredientes,prod:estRenderProductos,rec:estRenderRecetas,calc:estRenderCalc,ord:estRenderOrdenes,control:estRenderControl,oper:estRenderOperadores})[tab]?.();
 }

@@ -17,7 +17,8 @@ db.pragma('foreign_keys = ON');
 const STORES = ['entradas', 'salidas_ins', 'produccion', 'salida_prod', 'inventario', 'catalogos',
   // Módulo "Producción y Estandarización" (recetas, versiones, órdenes, lotes, calidad)
   'est_ingredientes', 'est_productos', 'est_recetas', 'est_versiones', 'est_ordenes', 'est_lotes', 'est_auditoria',
-  'est_organizaciones', 'est_exportaciones', 'est_accesos', 'est_mediciones'];
+  'est_organizaciones', 'est_exportaciones', 'est_accesos', 'est_mediciones',
+  'est_operadores', 'est_certificaciones'];
 
 // Stores cuya propiedad es de una organización. El servidor filtra las lecturas
 // y valida/estampa las escrituras por la organización activa de la sesión, para
@@ -29,7 +30,9 @@ const ORG_SCOPE = {
   est_productos:  { field: 'organizacion' },
   est_recetas:    { field: 'organizacion' },
   est_versiones:  { parent: 'est_recetas', key: 'recetaId' },
-  est_mediciones: { field: 'organizacion' }
+  est_mediciones: { field: 'organizacion' },
+  est_operadores: { field: 'organizacion' },
+  est_certificaciones: { field: 'organizacion' }
 };
 function isOrgScoped(store) { return Object.prototype.hasOwnProperty.call(ORG_SCOPE, store); }
 

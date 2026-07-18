@@ -424,6 +424,42 @@ test('serie vacía no rompe',()=>{
   assert.strictEqual(r.n,0);assert.strictEqual(r.cumplimientoPct,null);
 });
 
+console.log('\n■ Validación cruzada y certificación de operadores');
+test('cuenta lotes y operadores distintos de una receta',()=>{
+  const ords=[
+    {estado:'terminada',recetaId:1,responsable:'María'},
+    {estado:'terminada',recetaId:1,real:{responsable:'maría '}},   // mismo operador (normaliza)
+    {estado:'terminada',recetaId:1,responsable:'José'},
+    {estado:'programada',recetaId:1,responsable:'Ana'},            // no terminada → no cuenta
+    {estado:'terminada',recetaId:2,responsable:'Luis'}             // otra receta
+  ];
+  const e=C.evidenciaEstandar(ords,1);
+  assert.strictEqual(e.lotes,3);
+  assert.strictEqual(e.operadores,2);
+});
+test('valida cruzada: bloquea si faltan lotes u operadores',()=>{
+  const r1=C.validacionCruzada({lotes:1,operadores:1},{minLotes:3,minOperadores:2});
+  assert.strictEqual(r1.ok,false);
+  assert.strictEqual(r1.faltanLotes,2);
+  assert.strictEqual(r1.faltanOperadores,1);
+  const r2=C.validacionCruzada({lotes:3,operadores:2},{minLotes:3,minOperadores:2});
+  assert.strictEqual(r2.ok,true);
+  assert.strictEqual(r2.faltanLotes,0);
+});
+test('valida cruzada usa el default si no hay requisitos',()=>{
+  const r=C.validacionCruzada({lotes:0,operadores:0});
+  assert.strictEqual(r.minLotes,3);assert.strictEqual(r.minOperadores,2);
+  assert.strictEqual(r.ok,false);
+});
+test('estado de certificación por operador y producto',()=>{
+  const certs=[{operadorId:1,productoId:10,estado:'certificado'},{operadorId:1,productoId:11,estado:'formacion'}];
+  assert.strictEqual(C.estadoCertificacion(certs,1,10),'certificado');
+  assert.strictEqual(C.estadoCertificacion(certs,1,11),'formacion');
+  assert.strictEqual(C.estadoCertificacion(certs,1,99),'no');   // sin registro → no
+  assert.strictEqual(C.estadoCertificacion(certs,2,10),'no');
+  assert.strictEqual(C.normEstadoCert('BASURA'),'no');
+});
+
 console.log('\n■ Confidencialidad y control de exportación');
 test('nivel por defecto es interna cuando falta o es desconocido',()=>{
   assert.strictEqual(C.nivelConfidencial(null),'interna');
