@@ -8,7 +8,7 @@
 // ════════════════════════════════════════════════════════════════
 'use strict';
 
-const EST_STORES=['est_ingredientes','est_productos','est_recetas','est_versiones','est_ordenes','est_lotes','est_auditoria','est_organizaciones','est_exportaciones'];
+const EST_STORES=['est_ingredientes','est_productos','est_recetas','est_versiones','est_ordenes','est_lotes','est_auditoria','est_organizaciones','est_exportaciones','est_accesos'];
 const EST_OPERACIONES=['Pesado','Mezclado','Amasado','Reposo','Fermentación','Laminado','División','Formado','Rellenado','Horneado','Enfriado','Decoración','Empacado'];
 const EST_CRITERIOS_CALIDAD=['Peso','Tamaño','Color','Aroma','Sabor','Textura','Cocción','Presentación','Sellado','Empaque'];
 
@@ -56,10 +56,24 @@ async function estSeq(store){const rows=await dbAll(store);return rows.length+1}
 // caches por render (solo lectura, se recargan en cada vista)
 let _estCache={};
 async function estLoad(...stores){
+  await estSyncOrgServidor();   // el servidor debe conocer la organización activa antes de leer
   const out={};
   await Promise.all(stores.map(async s=>{out[s]=await dbAll(s)}));
   _estCache={..._estCache,...out};
   return out;
+}
+// Sincroniza la organización activa (que el usuario eligió) con la sesión del
+// servidor, para que el aislamiento por organización lo aplique el backend y no
+// solo la interfaz. Idempotente y barata: solo llama cuando cambió.
+let _estOrgSyncronizada=null;
+async function estSyncOrgServidor(){
+  if(!(_estCache.est_organizaciones||[]).length){
+    try{_estCache.est_organizaciones=await dbAll('est_organizaciones')}catch(e){return}
+  }
+  const id=estOrgActiva();
+  if(id==null||String(id)===String(_estOrgSyncronizada))return;
+  try{await api('/api/org/activa',{method:'POST',body:{id}});_estOrgSyncronizada=id;}
+  catch(e){console.error('sincronizar organización',e)}
 }
 // ── Organizaciones (propiedad de las recetas) ──────────────────
 function estOrgs(){return(_estCache.est_organizaciones||[]).slice().sort((a,b)=>a.id-b.id)}
@@ -70,7 +84,12 @@ function estOrgActiva(){
   const existe=(_estCache.est_organizaciones||[]).some(x=>x.id===guardada);
   return existe?guardada:estOrgDefault();
 }
-function estSetOrgActiva(id){localStorage.setItem('est_org_activa',String(id));estRenderOrgBar();estRefrescarVistaActual();}
+async function estSetOrgActiva(id){
+  localStorage.setItem('est_org_activa',String(id));
+  _estOrgSyncronizada=null;               // forzar re-sincronización con el servidor
+  await estSyncOrgServidor();
+  estRenderOrgBar();estRefrescarVistaActual();
+}
 function estEnOrgActiva(entidad){return EstCore.perteneceAOrg(entidad,estOrgActiva(),estOrgDefault())}
 
 // ── Confidencialidad de recetas (control de exportación/transferencia) ──
@@ -456,7 +475,7 @@ async function estBorrarProd(id){
 let estEd=null; // estado del editor: {recetaId, versionId, comps:[], pasos:[]}
 async function estRenderRecetas(){
   const el=document.getElementById('est-rec');if(!el)return;
-  await estLoad('est_recetas','est_versiones','est_productos','est_ingredientes','est_organizaciones','est_exportaciones');
+  await estLoad('est_recetas','est_versiones','est_productos','est_ingredientes','est_organizaciones','est_exportaciones','est_accesos');
   await estBootstrapOrgs();estRenderOrgBar();
   const recetas=(_estCache.est_recetas||[]).filter(estEnOrgActiva).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)));
   const prods=(_estCache.est_productos||[]);
@@ -495,7 +514,37 @@ async function estRenderRecetas(){
     :'<div class="est-aviso">Aún no hay recetas con 2 o más versiones. Crea una nueva versión desde una receta (botón "Crear nueva versión") para poder comparar.</div>'}
   </div>`;})()}
   ${estHistorialExportHTML()}
+  ${estHistorialAccesosHTML()}
   <div id="est-rec-editor"></div>`;
+}
+// Historial de accesos / seguridad (solo admin). Muestra los eventos que el
+// SERVIDOR registró: cambios de organización activa, intentos bloqueados de
+// tocar datos de otra organización y transferencias.
+function estHistorialAccesosHTML(){
+  if(!estPuedeVer('config'))return '';
+  const org=estOrgActiva();
+  const lbl={
+    'org.activar':['🔄 Organización activada','var(--blue)'],
+    'org.acceso_denegado':['⛔ Acceso a otra organización BLOQUEADO','var(--red)'],
+    'org.escritura_cruzada':['↗ Escritura en otra organización','var(--gold)'],
+    'org.transferencia':['↗ Transferencia de receta','var(--green)'],
+    'org.transferencia_denegada':['⛔ Transferencia BLOQUEADA','var(--red)']
+  };
+  const regs=(_estCache.est_accesos||[])
+    .filter(x=>String(x.organizacion)===String(org)||(x.detalle&&String(x.detalle.organizacionDestino)===String(org)))
+    .sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)))
+    .slice(0,50);
+  return`
+  <div class="card est-admin-only">
+    <div class="card-title">🛡️ Historial de accesos y seguridad</div>
+    ${regs.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Evento</th></tr></thead><tbody>
+    ${regs.map(x=>{const[t,c]=lbl[x.accion]||[x.accion,'var(--gray)'];return`<tr>
+      <td>${escHtml(String(x.fecha||'').slice(0,16).replace('T',' '))}</td>
+      <td>${escHtml(x.usuario||'—')}${x.rol?` <span class="est-badge" style="background:var(--gray)">${escHtml(x.rol)}</span>`:''}</td>
+      <td><span class="est-badge" style="background:${c}">${escHtml(t)}</span></td></tr>`;}).join('')}
+    </tbody></table></div>`
+    :'<div class="est-aviso">El servidor registrará aquí los cambios de organización y cualquier intento de acceder a datos de otra organización.</div>'}
+  </div>`;
 }
 // Historial de exportaciones y transferencias que tocan la organización activa
 // (como origen o como destino). Muestra qué información ha salido del sistema.
@@ -877,24 +926,14 @@ async function estTransferirReceta(recetaId){
   const quien=prompt('Autorización EXPRESA de transferencia.\nEscribe tu nombre para registrar quién autoriza la copia:');
   if(quien==null)return;
   if(!confirm('¿Copiar la receta "'+receta.nombre+'" a "'+destino.nombre+'"?\nLa copia quedará como INTERNA en la organización destino.'))return;
-  const versionVigente=estVersionVigente(receta.id);
-  const ahora=new Date().toISOString();
-  const nuevoRecId=await dbAdd('est_recetas',{
-    nombre:receta.nombre,tipo:receta.tipo,productoId:null,
-    organizacion:destino.id,confidencialidad:'interna',
-    transferidaDe:{organizacion:origen,recetaId:receta.id,fecha:ahora,por:quien.trim()||estRol()},
-    createdAt:ahora
-  });
-  const versiones=(_estCache.est_versiones||[]).filter(x=>x.recetaId===receta.id);
-  for(const vr of versiones){
-    const copia={...JSON.parse(JSON.stringify(vr)),recetaId:nuevoRecId,createdAt:ahora,updatedAt:ahora};
-    delete copia.id;
-    await dbAdd('est_versiones',copia);
-  }
-  await estRegistrarExport({receta,version:versionVigente,formato:'transferencia',destino:'transferencia',orgDestino:destino.id,autorizadoPor:quien.trim()||estRol()});
-  await estLoad('est_recetas','est_versiones');
-  toast('↗ Receta copiada a '+destino.nombre+' (queda como interna allí)');
-  estRenderRecetas();
+  // La copia y la verificación de confidencialidad las hace el SERVIDOR (no solo
+  // la interfaz): el backend rechaza la transferencia si el nivel no la permite.
+  try{
+    const r=await api('/api/org/transferir-receta',{method:'POST',body:{recetaId:receta.id,destinoOrgId:destino.id,autorizadoPor:quien.trim()||estRol()}});
+    await estLoad('est_recetas','est_versiones','est_exportaciones','est_accesos');
+    toast('↗ Receta copiada a '+destino.nombre+' ('+(r.versiones||0)+' versión(es); queda como interna allí)');
+    estRenderRecetas();
+  }catch(e){toast('⛔ '+e.message,'var(--red)');}
 }
 async function estExportarReceta(versionId,formato){
   if(!estGuard('exportar'))return;
@@ -1566,7 +1605,9 @@ function estImprimirOrden(id){
 async function estExportarModulo(){
   if(!estGuard('exportar'))return;
   const data={version:1,modulo:'produccion_estandarizacion',fecha:new Date().toISOString()};
-  for(const s of EST_STORES)data[s]=await dbAll(s);
+  // ?all=1: respaldo COMPLETO de todas las organizaciones (solo admin). Sin este
+  // flag el servidor limitaría la lectura a la organización activa.
+  for(const s of EST_STORES)data[s]=await api('/api/store/'+s+'?all=1');
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`PanControl_Produccion_${hoy()}.json`;a.click();URL.revokeObjectURL(a.href);
   toast('💾 Respaldo del módulo descargado');
@@ -1580,8 +1621,8 @@ async function estImportarModulo(input){
     if(!confirm(`¿Importar respaldo del ${String(data.fecha||'').slice(0,10)}? Solo se agregan registros que no existan.`)){input.value='';return}
     let total=0;
     for(const s of EST_STORES){
-      const rows=data[s]||[];const existing=await dbAll(s);const ids=new Set(existing.map(r=>r.id));
-      for(const row of rows){if(!ids.has(row.id)){await dbAdd(s,(({id,...rest})=>rest)(row));total++}}
+      const rows=data[s]||[];const existing=await api('/api/store/'+s+'?all=1');const ids=new Set(existing.map(r=>r.id));
+      for(const row of rows){if(!ids.has(row.id)){await api('/api/store/'+s+'?all=1',{method:'POST',body:(({id,...rest})=>rest)(row)});total++}}
     }
     await estAudit('modulo.importar','modulo',null,null,{registros:total});
     toast(`✅ ${total} registro(s) importados`);

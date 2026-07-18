@@ -132,6 +132,10 @@ catálogos, caja ni autenticación.
   (`json`|`csv`|`transferencia`), `destino` (`archivo`|`transferencia`),
   organizacionOrigen, organizacionDestino, autorizadoPor. Historial de cada
   salida de información (ver Incremento 1b).
+- `est_accesos` — fecha, usuario, rol, `accion` (`org.activar`,
+  `org.acceso_denegado`, `org.escritura_cruzada`, `org.transferencia`,
+  `org.transferencia_denegada`), organizacion, detalle. Lo escribe el SERVIDOR
+  como historial de accesos/seguridad (ver Incremento 1c).
 
 Las cantidades calculables no se almacenan duplicadas, salvo los snapshots
 históricos (plan y receta congelada en la orden), que existen a propósito.
@@ -291,7 +295,38 @@ puede salir del sistema. Núcleo puro en `produccion-core.js` (con pruebas):
 - El nivel se edita desde el editor de receta (solo admin). En la lista de
   recetas se muestra un distintivo de confidencialidad por receta.
 
-> Nota: 1b refuerza la protección en la **interfaz** y deja el rastro en el
-> historial. El **refuerzo en el servidor** (que el backend impida ver/editar o
-> exportar datos de otra organización, no solo ocultarlos) corresponde al
-> Incremento 1c, aún pendiente.
+### 1c — Refuerzo en el servidor (aislamiento por organización)
+
+El backend deja de confiar solo en que la interfaz oculte los datos: ahora
+**aplica el aislamiento por organización en el servidor**.
+
+- **Organización activa en la sesión.** El frontend la sincroniza con
+  `POST /api/org/activa` (endpoints en `server/routes/org.js`). Si la sesión no
+  tiene ninguna, se usa la organización por defecto (la más antigua).
+  `estSyncOrgServidor()` la envía antes de cada lectura del módulo.
+- **Stores con propiedad de organización** (`server/db.js` → `ORG_SCOPE`):
+  `est_recetas` y `est_productos` (campo `organizacion`) y `est_versiones`
+  (hereda la organización de su receta — protege el contenido de la fórmula).
+- **Lecturas** (`GET /api/store/:store`): devuelven solo los registros de la
+  organización activa. El admin (dueño de todas) puede pedir todo con `?all=1`
+  (lo usan los respaldos del módulo); el viewer nunca puede.
+- **Escrituras**: al crear se **estampa** la organización activa; editar o
+  eliminar un registro de **otra** organización devuelve **403**. Todo intento
+  bloqueado queda en `est_accesos`.
+- **Transferencia server-side** (`POST /api/org/transferir-receta`): el
+  **servidor** verifica la confidencialidad con `EstCore.puedeTransferirReceta`
+  (produccion-core.js se `require` también en Node), copia receta + versiones a
+  la organización destino (queda `interna`, con `transferidaDe`) y registra en
+  `est_exportaciones` y `est_accesos`. La interfaz ya no copia por su cuenta.
+- **Historial de accesos**: tarjeta "🛡️ Historial de accesos y seguridad" en la
+  pestaña Recetas (solo admin), alimentada por `est_accesos`.
+- **Pruebas**: `node tests/server-org-scope.test.js` levanta la app real contra
+  una base temporal y verifica el aislamiento, los bloqueos 403, la
+  autorización de transferencia y el registro de accesos (14 pruebas).
+
+> Modelo de usuarios: el login sigue siendo por contraseña compartida
+> (admin/viewer). El aislamiento del servidor evita fugas/escrituras cruzadas
+> accidentales y limita al viewer, y deja el mecanismo listo para cuando se
+> agregue pertenencia de usuarios a organizaciones. `est_ordenes`/`est_lotes`
+> (registros operativos, no la fórmula) aún no están scoped en el servidor:
+> queda como refuerzo futuro.
