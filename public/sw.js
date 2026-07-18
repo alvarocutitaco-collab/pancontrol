@@ -1,5 +1,5 @@
 // PanControl Service Worker v2.6 — modulo recetas solo para admin
-const CACHE_NAME = 'pancontrol-v3.0';
+const CACHE_NAME = 'pancontrol-v3.1';
 
 // Archivos a cachear para uso offline
 const PRECACHE_URLS = [

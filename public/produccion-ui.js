@@ -1181,8 +1181,8 @@ async function estRenderOrdenes(abrirId){
       <td><button class="btn bsec bsm" onclick="estAbrirOrden(${o.id})">Abrir</button></td></tr>`;
     }).join(''):empty(7)}</tbody></table></div></div>
   <div class="card"><div class="card-title">🏷 Lotes (${lotes.length})</div>
-    <div class="table-wrap"><table><thead><tr><th>Código</th><th>Fecha</th><th>Producto</th><th>Producidas</th><th>Aprobadas</th><th>Rechazadas</th><th>Vence</th><th>Estado</th></tr></thead><tbody>
-    ${lotes.length?lotes.map(l=>`<tr><td>${escHtml(l.codigo)}</td><td>${fmt(l.fecha)}</td><td>${escHtml(l.productoNombre||'—')}</td><td>${l.cantidadProducida??'—'}</td><td>${l.cantidadAprobada??'—'}</td><td>${l.cantidadRechazada??'—'}</td><td>${l.vencimiento?fmt(l.vencimiento):'—'}</td><td>${estBadge(l.estado)}</td></tr>`).join(''):empty(8)}</tbody></table></div></div>
+    <div class="table-wrap"><table><thead><tr><th>Código</th><th>Fecha</th><th>Producto</th><th>Producidas</th><th>Aprobadas</th><th>Rechazadas</th><th>Costo (S/.)</th><th>Vence</th><th>Estado</th></tr></thead><tbody>
+    ${lotes.length?lotes.map(l=>`<tr><td>${escHtml(l.codigo)}</td><td>${fmt(l.fecha)}</td><td>${escHtml(l.productoNombre||'—')}</td><td>${l.cantidadProducida??'—'}</td><td>${l.cantidadAprobada??'—'}</td><td>${l.cantidadRechazada??'—'}</td><td>${l.costo&&l.costo.total!=null?EstCore.redondear(l.costo.total,2):'—'}</td><td>${l.vencimiento?fmt(l.vencimiento):'—'}</td><td>${estBadge(l.estado)}</td></tr>`).join(''):empty(9)}</tbody></table></div></div>
   <div id="est-orden-detalle"></div>`;
   if(abrirId)estAbrirOrden(abrirId);
 }
@@ -1229,6 +1229,7 @@ async function estAbrirOrden(id){
     ${['en_proceso','pausada'].includes(o.estado)&&estPuedeVer('orden.real')?estFormRegistroReal(o):''}
     ${['en_proceso','pausada','terminada'].includes(o.estado)?estSeccionMuestras(o):''}
     ${o.real?estSeccionResultados(o):''}
+    ${o.estado==='terminada'?estSeccionCosto(o):''}
     ${o.estado==='terminada'?estSeccionCalidad(o):''}
     ${o.estado==='terminada'?estSeccionSensorial(o):''}
     ${o.estado==='terminada'?estSeccionLoteDorado(o):''}
@@ -1516,6 +1517,12 @@ async function estCerrarOrden(id){
     cantidadProducida:real.producidas,cantidadAprobada:null,cantidadRechazada:null,
     vencimiento:venc,estado:'pendiente',obs:'',demo:o.demo||false,createdAt:new Date().toISOString()
   };
+  // Costo del lote CONGELADO a la fecha: usa los costos de insumos vigentes AHORA
+  // y los guarda en el lote, para que un cambio de precio posterior no altere el
+  // costo histórico de esta producción.
+  const costos={};(_estCache.est_ingredientes||[]).forEach(i=>{if(i.costoRef!=null)costos[i.id]=i.costoRef;});
+  const cl=EstCore.costoLote(real.consumos,costos,real.buenas||real.producidas);
+  lote.costo={fecha:hoy(),total:cl.total,costoPorUnidad:cl.costoPorUnidad,completo:cl.completo,faltantes:cl.faltantes,detalle:cl.detalle,congelado:true};
   const loteId=await dbAdd('est_lotes',lote);
   const nuevo={...o,estado:'terminada',real,kpis,loteId,updatedAt:new Date().toISOString()};
   await dbPut('est_ordenes',nuevo);
@@ -1544,6 +1551,42 @@ function estSeccionResultados(o){
     ${o.real.incidencias?`<br>⚠ Incidencias: ${escHtml(o.real.incidencias)}`:''}
     ${o.real.comentarios?`<br>💬 ${escHtml(o.real.comentarios)}`:''}
   </div>`;
+}
+// ── Costo del lote (congelado a la fecha de producción) ──
+function estSeccionCosto(o){
+  const lote=(_estCache.est_lotes||[]).find(l=>l.id===o.loteId);
+  const c=lote&&lote.costo;
+  const admin=estPuedeVer('orden.real');
+  if(!c){
+    return`<div class="card-title" style="margin-top:12px">💰 Costo del lote</div>
+    <div class="est-aviso">Aún no se ha calculado el costo de este lote.${lote&&admin?` <button class="btn bsec bsm est-admin-only" onclick="estCalcularCostoLote(${lote.id})">Calcular con precios actuales</button>`:''}</div>`;
+  }
+  const sol=x=>x==null?'—':'S/. '+EstCore.redondear(x,2);
+  return`<div class="card-title" style="margin-top:12px">💰 Costo del lote ${c.congelado?`<span class="est-badge" style="background:var(--blue)">congelado ${escHtml(String(c.fecha||'').slice(0,10))}</span>`:''}</div>
+  <div class="est-stats">
+    <div class="est-stat"><div class="est-stat-v">${sol(c.total)}</div><div class="est-stat-l">Costo total (insumos)</div></div>
+    <div class="est-stat"><div class="est-stat-v">${sol(c.costoPorUnidad)}</div><div class="est-stat-l">Costo por unidad buena</div></div>
+  </div>
+  ${!c.completo?`<div class="est-aviso">⚠ Faltan costos de: ${escHtml((c.faltantes||[]).join(', '))}. El total considera solo los insumos con costo definido (edítalos en Ingredientes).</div>`:''}
+  <div class="table-wrap"><table><thead><tr><th>Ingrediente</th><th>Consumo</th><th>Costo unit. (S/. por u. base)</th><th>Costo</th></tr></thead><tbody>
+    ${(c.detalle||[]).map(d=>`<tr><td>${escHtml(d.nombre)}</td><td>${estFmt(d.cantidadBase,d.unidadBase)}</td><td>${d.costoUnit!=null?EstCore.redondear(d.costoUnit,6):'<span style="color:var(--red)">—</span>'}</td><td>${d.costo!=null?sol(d.costo):'—'}</td></tr>`).join('')}
+  </tbody></table></div>
+  ${admin?`<div style="margin-top:6px"><button class="btn bsec bsm est-admin-only" onclick="estCalcularCostoLote(${lote.id})">🔄 Recalcular con precios actuales</button> <span style="font-size:.72rem;color:var(--gray)">Vuelve a congelar el costo con los precios de insumos de hoy.</span></div>`:''}`;
+}
+async function estCalcularCostoLote(loteId){
+  if(!estGuard('orden.real'))return;
+  await estLoad('est_lotes','est_ordenes','est_ingredientes');
+  const lote=(_estCache.est_lotes||[]).find(l=>l.id===loteId);if(!lote)return;
+  const orden=(_estCache.est_ordenes||[]).find(o=>o.loteId===loteId);
+  const real=orden&&orden.real;
+  if(!real||!real.consumos)return toast('No hay consumo real registrado para este lote','var(--red)');
+  const costos={};(_estCache.est_ingredientes||[]).forEach(i=>{if(i.costoRef!=null)costos[i.id]=i.costoRef;});
+  const cl=EstCore.costoLote(real.consumos,costos,real.buenas||real.producidas);
+  await dbPut('est_lotes',{...lote,costo:{fecha:hoy(),total:cl.total,costoPorUnidad:cl.costoPorUnidad,completo:cl.completo,faltantes:cl.faltantes,detalle:cl.detalle,congelado:true}});
+  await estAudit('lote.costo','est_lotes',loteId,null,{total:cl.total,completo:cl.completo});
+  await estLoad('est_lotes');
+  toast('💰 Costo del lote congelado ('+('S/. '+EstCore.redondear(cl.total,2))+')');
+  if(orden)estAbrirOrden(orden.id);
 }
 // ── Control de peso ──
 function estSeccionMuestras(o){
