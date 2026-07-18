@@ -101,7 +101,9 @@ catálogos, caja ni autenticación.
 - `est_productos` — código, nombre, categoría, descripción, pesoAntes,
   pesoDespues, tolMin/tolMax, dimensiones, unidadVenta, vidaUtilDias,
   conservación, porBandeja, porLote, muestraRecomendada, estado
-  (desarrollo/prueba/aprobado/suspendido/descontinuado).
+  (desarrollo/prueba/aprobado/suspendido/descontinuado),
+  `organizacion`, `especificaciones:[{nombre,unidad,objetivo,min,max,advMin,
+  advMax}]` (tolerancias por variable, ver Incremento 3).
 - `est_recetas` — nombre, tipo (`producto`|`sub`), productoId, `organizacion`
   (empresa propietaria), `confidencialidad`
   (`interna`|`restringida`|`plantilla`|`transferible`; default `interna`),
@@ -136,6 +138,9 @@ catálogos, caja ni autenticación.
   `org.acceso_denegado`, `org.escritura_cruzada`, `org.transferencia`,
   `org.transferencia_denegada`), organizacion, detalle. Lo escribe el SERVIDOR
   como historial de accesos/seguridad (ver Incremento 1c).
+- `est_mediciones` — fecha, productoId, variable, valor, unidad, nota,
+  organizacion. Cada medición de una variable controlada (ver Incremento 3).
+  Aislada por organización en el servidor (campo `organizacion`).
 
 Las cantidades calculables no se almacenan duplicadas, salvo los snapshots
 históricos (plan y receta congelada en la orden), que existen a propósito.
@@ -330,3 +335,30 @@ El backend deja de confiar solo en que la interfaz oculte los datos: ahora
 > agregue pertenencia de usuarios a organizaciones. `est_ordenes`/`est_lotes`
 > (registros operativos, no la fórmula) aún no están scoped en el servidor:
 > queda como refuerzo futuro.
+
+## 16. Incremento 3 — Especificaciones y tolerancias por variable
+
+Generaliza el control de peso a **cualquier variable medible** (temperatura de
+horno, tiempo de fermentación, dimensiones, °Brix, humedad, pH…). Es **aditivo**:
+no toca el control de peso existente en las órdenes.
+
+- **Especificación por variable** (guardada en `est_productos.especificaciones`):
+  `{nombre, unidad, objetivo, min, max, advMin, advMax}`. `min`/`max` son los
+  límites duros (fuera = "fuera"); `advMin`/`advMax` definen una **zona de aviso**
+  opcional dentro de los límites. Se admiten límites de un solo lado.
+- **Núcleo puro** (`produccion-core.js`, con pruebas): `clasificarValor` →
+  `dentro` | `advertencia` | `fuera` | `null`; `validarEspecificacion`;
+  `resumenEspecificacion` (conteos por categoría, estadísticas y % de
+  cumplimiento). Ojo: `null`/`''` = límite ausente (no `0`).
+- **Mediciones** (`est_mediciones`): cada valor se registra y se **clasifica
+  solo**. Aisladas por organización en el servidor (Incremento 1c).
+- **Pestaña "📈 Control por variable"**: elegir producto → definir variables →
+  registrar mediciones → tabla con marca automática (✅/🟡/🔴) + **gráfico
+  histórico** (SVG puro, sin librerías, offline) con las zonas dentro/aviso/fuera
+  de fondo, la línea de valores y puntos coloreados por su clasificación.
+- **Pruebas**: `node tests/produccion-core.test.js` cubre clasificación, validación
+  y resumen (incluye el caso de límites nulos). Verificado end-to-end en navegador
+  (definir variable, registrar, clasificar, graficar) sin errores JS.
+
+> Pendiente afín (Incremento 4): validación cruzada (mínimo de lotes/operadores
+> antes de aprobar un estándar) y matriz de certificación de operadores.

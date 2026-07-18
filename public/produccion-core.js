@@ -286,6 +286,53 @@ function parseMuestras(texto){
   return String(texto||'').split(/[\s,;]+/).map(s=>Number(String(s).replace(',','.'))).filter(n=>Number.isFinite(n)&&n>0);
 }
 
+// ── Especificaciones y tolerancias por variable ─────────────────
+// Generaliza el control de peso a CUALQUIER variable (temperatura, tiempo,
+// dimensión, °Brix, humedad…). Una especificación define límites duros
+// (min/max: fuera de ellos = "fuera") y, opcionalmente, una zona de aviso
+// (advMin/advMax: dentro de los límites duros pero cerca del borde =
+// "advertencia"). Los límites son independientes (se admite un solo lado).
+function numOrNull(x){if(x==null||x==='')return null;const n=Number(x);return Number.isFinite(n)?n:null}
+// Clasifica un valor: 'dentro' | 'advertencia' | 'fuera' | null (sin datos).
+function clasificarValor(valor,spec){
+  const x=Number(valor);
+  if(!Number.isFinite(x)||!spec)return null;
+  const min=numOrNull(spec.min),max=numOrNull(spec.max);
+  const advMin=numOrNull(spec.advMin),advMax=numOrNull(spec.advMax);
+  if(min==null&&max==null)return null;                 // sin límites: no se puede clasificar
+  if((min!=null&&x<min)||(max!=null&&x>max))return 'fuera';
+  if((advMin!=null&&x<advMin)||(advMax!=null&&x>advMax))return 'advertencia';
+  return 'dentro';
+}
+// Valida una especificación antes de guardarla. Devuelve lista de errores.
+function validarEspecificacion(spec){
+  const e=[];
+  if(!spec||!String(spec.nombre||'').trim())e.push('La variable necesita un nombre');
+  const min=numOrNull(spec&&spec.min),max=numOrNull(spec&&spec.max);
+  const advMin=numOrNull(spec&&spec.advMin),advMax=numOrNull(spec&&spec.advMax);
+  if(min==null&&max==null)e.push('Define al menos un límite (mínimo o máximo)');
+  if(min!=null&&max!=null&&min>max)e.push('El mínimo no puede superar al máximo');
+  if(advMin!=null&&min!=null&&advMin<min)e.push('El aviso mínimo debe estar dentro del límite mínimo');
+  if(advMax!=null&&max!=null&&advMax>max)e.push('El aviso máximo debe estar dentro del límite máximo');
+  if(advMin!=null&&advMax!=null&&advMin>advMax)e.push('El aviso mínimo no puede superar al aviso máximo');
+  return e;
+}
+// Resume una serie de valores contra una especificación: conteos por categoría,
+// estadísticas y % de cumplimiento (dentro / clasificados).
+function resumenEspecificacion(valores,spec){
+  const xs=(valores||[]).map(Number).filter(n=>Number.isFinite(n));
+  const n=xs.length;
+  if(!n)return{n:0,promedio:null,min:null,max:null,desv:null,dentro:0,advertencia:0,fuera:0,sinClasificar:0,cumplimientoPct:null};
+  const prom=xs.reduce((a,b)=>a+b,0)/n;
+  const varianza=n>1?xs.reduce((a,x)=>a+(x-prom)*(x-prom),0)/(n-1):0;
+  const counts={dentro:0,advertencia:0,fuera:0,sinClasificar:0};
+  xs.forEach(x=>{const c=clasificarValor(x,spec);counts[c||'sinClasificar']++;});
+  const clasificados=counts.dentro+counts.advertencia+counts.fuera;
+  return{n,promedio:prom,min:Math.min(...xs),max:Math.max(...xs),desv:Math.sqrt(varianza),
+    dentro:counts.dentro,advertencia:counts.advertencia,fuera:counts.fuera,sinClasificar:counts.sinClasificar,
+    cumplimientoPct:clasificados?counts.dentro/clasificados*100:null};
+}
+
 // ── Validación del registro real de producción ──────────────────
 // real:{producidas,buenas,defectuosas,quemadas,rotas,deformadas,muestra,
 //       reprocesadas,pesoObtenido,pesoSobrante,horaInicio,horaFin}
@@ -516,6 +563,7 @@ return{
   rendimientoPct,mermaPct,pesoUtilizable,unidadesEsperadas,cumplimientoPct,
   statsPesos,parseMuestras,
   validarRegistroReal,duracionMin,calcularKpis,
+  clasificarValor,validarEspecificacion,resumenEspecificacion,
   snapshotVersion,
   PERMISOS,puede,genCodigo,
   compararVersiones,

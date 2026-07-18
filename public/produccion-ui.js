@@ -8,7 +8,7 @@
 // ════════════════════════════════════════════════════════════════
 'use strict';
 
-const EST_STORES=['est_ingredientes','est_productos','est_recetas','est_versiones','est_ordenes','est_lotes','est_auditoria','est_organizaciones','est_exportaciones','est_accesos'];
+const EST_STORES=['est_ingredientes','est_productos','est_recetas','est_versiones','est_ordenes','est_lotes','est_auditoria','est_organizaciones','est_exportaciones','est_accesos','est_mediciones'];
 const EST_OPERACIONES=['Pesado','Mezclado','Amasado','Reposo','Fermentación','Laminado','División','Formado','Rellenado','Horneado','Enfriado','Decoración','Empacado'];
 const EST_CRITERIOS_CALIDAD=['Peso','Tamaño','Color','Aroma','Sabor','Textura','Cocción','Presentación','Sellado','Empaque'];
 
@@ -140,7 +140,7 @@ async function estBootstrapOrgs(){
 function estRefrescarVistaActual(){
   // Re-renderiza la pestaña visible tras cambiar de organización.
   const activa=document.querySelector('#page-estandarizacion .tab.active')?.dataset.tab;
-  ({panel:estRenderPanel,ing:estRenderIngredientes,prod:estRenderProductos,rec:estRenderRecetas,calc:estRenderCalc,ord:estRenderOrdenes}[activa]||(()=>{}))();
+  ({panel:estRenderPanel,ing:estRenderIngredientes,prod:estRenderProductos,rec:estRenderRecetas,calc:estRenderCalc,ord:estRenderOrdenes,control:estRenderControl}[activa]||(()=>{}))();
 }
 function estRenderOrgBar(){
   const el=document.getElementById('est-orgbar');if(!el)return;
@@ -1600,6 +1600,214 @@ function estImprimirOrden(id){
 }
 
 // ════════════════════════════════════════════════════════════════
+// CONTROL POR VARIABLE (especificaciones, tolerancias, gráficos)
+// ════════════════════════════════════════════════════════════════
+// Generaliza el control de peso a CUALQUIER variable medible (temperatura de
+// horno, tiempo de fermentación, dimensiones, °Brix, humedad…). Cada producto
+// define sus especificaciones (límites y zona de aviso); las mediciones se
+// registran y se clasifican solas en dentro/advertencia/fuera, con historial y
+// gráfico. Es ADITIVO: no toca el control de peso existente en las órdenes.
+let _estControlProd=null;
+function estControlColor(clase){return clase==='dentro'?'var(--green)':clase==='advertencia'?'var(--gold)':clase==='fuera'?'var(--red)':'var(--gray)'}
+function estControlLbl(clase){return clase==='dentro'?'✅ Dentro':clase==='advertencia'?'🟡 Advertencia':clase==='fuera'?'🔴 Fuera':'—'}
+// "180, 190 205" → [180,190,205] admitiendo negativos/decimales (no solo pesos).
+function estParseValores(texto){
+  return String(texto||'').split(/[\s,;]+/).map(s=>Number(String(s).replace(',','.'))).filter(n=>Number.isFinite(n));
+}
+function estEspecsDe(prod){return(prod&&Array.isArray(prod.especificaciones))?prod.especificaciones:[]}
+function estMedicionesDe(prodId,variable){
+  return(_estCache.est_mediciones||[])
+    .filter(m=>m.productoId===prodId&&(variable==null||m.variable===variable))
+    .sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+}
+async function estRenderControl(){
+  const el=document.getElementById('est-control');if(!el)return;
+  await estLoad('est_productos','est_mediciones','est_organizaciones');
+  await estBootstrapOrgs();estRenderOrgBar();
+  const prods=(_estCache.est_productos||[]).filter(estEnOrgActiva).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)));
+  if(_estControlProd&&!prods.some(p=>p.id===_estControlProd))_estControlProd=null;
+  el.innerHTML=`
+  <div class="card">
+    <div class="card-title">📈 Control por variable</div>
+    <div class="est-aviso">Define límites y una zona de aviso para cualquier variable (peso, temperatura, tiempo, medidas…). Al registrar mediciones se marcan solas: ✅ dentro · 🟡 advertencia · 🔴 fuera, con gráfico histórico.</div>
+    <div class="fgrid"><div class="fg"><label>Producto</label>
+      <select id="ecl-prod" onchange="estControlSelectProd(this.value)">
+        <option value="">Seleccionar...</option>
+        ${prods.map(p=>`<option value="${p.id}"${p.id===_estControlProd?' selected':''}>${escHtml(p.nombre)}</option>`).join('')}
+      </select></div></div>
+  </div>
+  <div id="ecl-detalle">${_estControlProd?estControlDetalleHTML(estProd(_estControlProd)):'<div class="card"><div class="est-aviso">Elige un producto para ver y registrar sus variables.</div></div>'}</div>`;
+}
+function estControlSelectProd(id){_estControlProd=Number(id)||null;const d=document.getElementById('ecl-detalle');if(d)d.innerHTML=_estControlProd?estControlDetalleHTML(estProd(_estControlProd)):'<div class="card"><div class="est-aviso">Elige un producto para ver y registrar sus variables.</div></div>';}
+function estControlDetalleHTML(prod){
+  if(!prod)return '';
+  const specs=estEspecsDe(prod);
+  const admin=estPuedeVer('prod.crud');
+  const rango=s=>{const a=s.min!=null?s.min:'−∞',b=s.max!=null?s.max:'+∞';return `${a} … ${b}`+((s.advMin!=null||s.advMax!=null)?` (aviso ${s.advMin!=null?s.advMin:'−'}…${s.advMax!=null?s.advMax:'−'})`:'');};
+  return `
+  ${admin?`<div class="card form-card">
+    <div class="card-title">Especificación de variable — ${escHtml(prod.nombre)}</div>
+    <div class="fgrid">
+      <div class="fg"><label>Variable *</label><input type="text" id="es-nombre" placeholder="Ej.: Temperatura de horno" list="est-vars"></div>
+      <div class="fg"><label>Unidad</label><input type="text" id="es-unidad" placeholder="°C, min, mm, %…"></div>
+      <div class="fg"><label>Objetivo</label><input type="number" id="es-obj" step="any" placeholder="Opcional"></div>
+      <div class="fg"><label>Límite mínimo</label><input type="number" id="es-min" step="any"></div>
+      <div class="fg"><label>Límite máximo</label><input type="number" id="es-max" step="any"></div>
+      <div class="fg"><label>Aviso mínimo</label><input type="number" id="es-advmin" step="any" placeholder="Opcional"></div>
+      <div class="fg"><label>Aviso máximo</label><input type="number" id="es-advmax" step="any" placeholder="Opcional"></div>
+    </div>
+    <button class="btn bp btn-full" onclick="estGuardarEspec(${prod.id})">💾 Guardar variable</button>
+    <div style="font-size:.72rem;color:var(--gray);margin-top:6px">Si repites el nombre de una variable, se actualiza. Deja límites de un solo lado si aplica (p. ej. solo mínimo).</div>
+    <datalist id="est-vars"><option>Peso</option><option>Temperatura de horno</option><option>Tiempo de fermentación</option><option>Tiempo de horneado</option><option>Altura</option><option>Diámetro</option><option>Humedad</option><option>°Brix</option><option>pH</option></datalist>
+  </div>`:''}
+  <div class="card">
+    <div class="card-title">Variables definidas (${specs.length})</div>
+    ${specs.length?`<div class="table-wrap"><table><thead><tr><th>Variable</th><th>Unidad</th><th>Objetivo</th><th>Rango (aviso)</th>${admin?'<th>🗑</th>':''}</tr></thead><tbody>
+      ${specs.map(s=>`<tr><td><b>${escHtml(s.nombre)}</b></td><td>${escHtml(s.unidad||'')}</td><td>${s.objetivo!=null?escHtml(String(s.objetivo)):'—'}</td><td>${escHtml(rango(s))}</td>${admin?`<td><button class="del-btn" onclick="estBorrarEspec(${prod.id},'${escAttr(s.nombre)}')">🗑</button></td>`:''}</tr>`).join('')}
+    </tbody></table></div>`:'<div class="est-aviso">Aún no hay variables definidas para este producto.</div>'}
+  </div>
+  ${specs.length?`<div class="card form-card">
+    <div class="card-title">Registrar medición</div>
+    <div class="fgrid">
+      <div class="fg"><label>Variable</label><select id="em-var">${specs.map(s=>`<option value="${escAttr(s.nombre)}">${escHtml(s.nombre)}${s.unidad?` (${escHtml(s.unidad)})`:''}</option>`).join('')}</select></div>
+      <div class="fg"><label>Valor(es)</label><input type="text" id="em-valor" placeholder="Ej.: 190  o  188, 192, 195"></div>
+      <div class="fg"><label>Fecha</label><input type="date" id="em-fecha" value="${hoy()}"></div>
+      <div class="fg fgrid one"><label>Nota (opcional)</label><input type="text" id="em-nota" placeholder="Lote, turno, observación…"></div>
+    </div>
+    <button class="btn bg2 btn-full" onclick="estGuardarMedicion(${prod.id})">➕ Registrar medición</button>
+  </div>`:''}
+  ${specs.map(s=>estControlVariableHTML(prod,s)).join('')}`;
+}
+// Tarjeta por variable: resumen + gráfico histórico con zonas + últimas medidas.
+function estControlVariableHTML(prod,spec){
+  const meds=estMedicionesDe(prod.id,spec.nombre);
+  const valores=meds.map(m=>m.valor);
+  const r=EstCore.resumenEspecificacion(valores,spec);
+  const admin=estPuedeVer('prod.crud');
+  const stat=(lbl,val,color)=>`<div class="est-stat"><div class="est-stat-v" style="color:${color||'var(--brown)'}">${val}</div><div class="est-stat-l">${lbl}</div></div>`;
+  const u=spec.unidad?' '+escHtml(spec.unidad):'';
+  const ultimas=meds.slice(-12).reverse();
+  return `
+  <div class="card">
+    <div class="card-title">📈 ${escHtml(spec.nombre)} ${spec.unidad?`<span style="font-weight:400;color:var(--gray)">(${escHtml(spec.unidad)})</span>`:''}</div>
+    <div class="est-stats">
+      ${stat('Mediciones',r.n)}
+      ${stat('Promedio',r.n?EstCore.redondear(r.promedio,2)+u:'—')}
+      ${stat('Cumplimiento',r.cumplimientoPct!=null?EstCore.redondear(r.cumplimientoPct,1)+'%':'—',r.cumplimientoPct!=null?estControlColor(r.cumplimientoPct>=90?'dentro':r.cumplimientoPct>=70?'advertencia':'fuera'):'var(--gray)')}
+      ${stat('🟡 Advert.',r.advertencia,'var(--gold)')}
+      ${stat('🔴 Fuera',r.fuera,'var(--red)')}
+    </div>
+    ${r.n?estChartHistorico(meds,spec):'<div class="est-aviso">Registra mediciones para ver el gráfico histórico.</div>'}
+    ${ultimas.length?`<div class="table-wrap" style="margin-top:8px"><table><thead><tr><th>Fecha</th><th>Valor</th><th>Estado</th><th>Nota</th>${admin?'<th>🗑</th>':''}</tr></thead><tbody>
+      ${ultimas.map(m=>{const c=EstCore.clasificarValor(m.valor,spec);return`<tr>
+        <td>${escHtml(String(m.fecha||'').slice(0,10))}</td>
+        <td><b>${escHtml(String(m.valor))}</b>${u}</td>
+        <td><span class="est-badge" style="background:${estControlColor(c)}">${estControlLbl(c)}</span></td>
+        <td>${escHtml(m.nota||'')}</td>
+        ${admin?`<td><button class="del-btn" onclick="estBorrarMedicion(${m.id})">🗑</button></td>`:''}</tr>`;}).join('')}
+    </tbody></table></div>`:''}
+  </div>`;
+}
+// Gráfico histórico en SVG puro (sin librerías, funciona offline). Dibuja las
+// zonas dentro/advertencia/fuera de fondo y la línea de valores con puntos
+// coloreados por su clasificación.
+function estChartHistorico(meds,spec){
+  const W=640,H=200,padL=44,padR=12,padT=12,padB=26;
+  const xs=meds.map(m=>Number(m.valor)).filter(Number.isFinite);
+  if(!xs.length)return '';
+  const lims=[spec.min,spec.max,spec.advMin,spec.advMax,spec.objetivo].map(Number).filter(Number.isFinite);
+  let lo=Math.min(...xs,...lims),hi=Math.max(...xs,...lims);
+  if(lo===hi){lo-=1;hi+=1;}
+  const margen=(hi-lo)*0.08;lo-=margen;hi+=margen;
+  const px=i=>meds.length<=1?padL+(W-padL-padR)/2:padL+i*(W-padL-padR)/(meds.length-1);
+  const py=v=>padT+(hi-v)/(hi-lo)*(H-padT-padB);
+  const num=x=>Number.isFinite(Number(x))?Number(x):null;
+  const mn=num(spec.min),mx=num(spec.max),aMn=num(spec.advMin),aMx=num(spec.advMax);
+  // Bandas de fondo [desde,hasta,color]
+  const bandas=[];
+  const gLo=aMn!=null?aMn:(mn!=null?mn:lo);
+  const gHi=aMx!=null?aMx:(mx!=null?mx:hi);
+  if(mn!=null&&lo<mn)bandas.push([lo,mn,'#FBEDED']);              // fuera (bajo)
+  if(aMn!=null&&mn!=null&&mn<aMn)bandas.push([mn,aMn,'#FBF3E0']); // aviso (bajo)
+  bandas.push([gLo,gHi,'#EAF5EA']);                                // dentro
+  if(aMx!=null&&mx!=null&&aMx<mx)bandas.push([aMx,mx,'#FBF3E0']); // aviso (alto)
+  if(mx!=null&&mx<hi)bandas.push([mx,hi,'#FBEDED']);             // fuera (alto)
+  const rects=bandas.map(([a,b,c])=>{const y=py(b),h=py(a)-py(b);return`<rect x="${padL}" y="${y.toFixed(1)}" width="${W-padL-padR}" height="${Math.max(0,h).toFixed(1)}" fill="${c}"/>`;}).join('');
+  const linea=(v,dash,color)=>v==null?'':`<line x1="${padL}" y1="${py(v).toFixed(1)}" x2="${W-padR}" y2="${py(v).toFixed(1)}" stroke="${color}" stroke-width="1"${dash?' stroke-dasharray="4 3"':''}/>`;
+  const refs=linea(mn,false,'#D9534F')+linea(mx,false,'#D9534F')+linea(num(spec.objetivo),true,'#8a6d3b');
+  const path=meds.map((m,i)=>`${i?'L':'M'}${px(i).toFixed(1)},${py(Number(m.valor)).toFixed(1)}`).join(' ');
+  const puntos=meds.map((m,i)=>{const c=EstCore.clasificarValor(m.valor,spec);return`<circle cx="${px(i).toFixed(1)}" cy="${py(Number(m.valor)).toFixed(1)}" r="3.4" fill="${estControlColor(c)}" stroke="#fff" stroke-width="1"/>`;}).join('');
+  const yLabs=[hi,(hi+lo)/2,lo].map(v=>`<text x="${padL-6}" y="${(py(v)+3).toFixed(1)}" text-anchor="end" font-size="10" fill="#8a7a66">${EstCore.redondear(v,1)}</text>`).join('');
+  return `<div class="est-chart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Gráfico histórico de ${escAttr(spec.nombre)}">
+    ${rects}
+    <rect x="${padL}" y="${padT}" width="${W-padL-padR}" height="${H-padT-padB}" fill="none" stroke="#e6dcc9"/>
+    ${refs}
+    <path d="${path}" fill="none" stroke="#6b4f2a" stroke-width="1.6"/>
+    ${puntos}
+    ${yLabs}
+  </svg></div>`;
+}
+async function estGuardarEspec(prodId){
+  if(!estGuard('prod.crud'))return;
+  // Campo numérico vacío → null (toNum devolvería 0 y falsearía el límite).
+  const numOr=id=>{const s=v(id).trim();return s===''?null:toNum(s);};
+  const spec={
+    nombre:v('es-nombre').trim(),unidad:v('es-unidad').trim(),
+    objetivo:numOr('es-obj'),min:numOr('es-min'),max:numOr('es-max'),
+    advMin:numOr('es-advmin'),advMax:numOr('es-advmax')
+  };
+  const errores=EstCore.validarEspecificacion(spec);
+  if(errores.length)return toast('⚠ '+errores[0],'var(--red)');
+  const prod=estProd(prodId);if(!prod)return;
+  const specs=estEspecsDe(prod).slice();
+  const i=specs.findIndex(s=>String(s.nombre).toLowerCase()===spec.nombre.toLowerCase());
+  if(i>=0)specs[i]=spec;else specs.push(spec);
+  await dbPut('est_productos',{...prod,especificaciones:specs});
+  await estAudit(i>=0?'especificacion.editar':'especificacion.crear','est_productos',prodId,null,{variable:spec.nombre});
+  await estLoad('est_productos');
+  toast('💾 Variable "'+spec.nombre+'" guardada');
+  estControlSelectProd(prodId);
+}
+async function estBorrarEspec(prodId,nombre){
+  if(!estGuard('prod.crud'))return;
+  const prod=estProd(prodId);if(!prod)return;
+  if(!confirm('¿Eliminar la variable "'+nombre+'"? (No borra las mediciones ya registradas.)'))return;
+  const specs=estEspecsDe(prod).filter(s=>s.nombre!==nombre);
+  await dbPut('est_productos',{...prod,especificaciones:specs});
+  await estAudit('especificacion.eliminar','est_productos',prodId,{variable:nombre},null);
+  await estLoad('est_productos');
+  toast('🗑 Variable eliminada');
+  estControlSelectProd(prodId);
+}
+async function estGuardarMedicion(prodId){
+  if(!estGuard('prod.crud'))return;
+  const variable=v('em-var');
+  const valores=estParseValores(v('em-valor'));
+  if(!valores.length)return toast('⚠ Escribe al menos un valor numérico','var(--red)');
+  const fecha=v('em-fecha')||hoy();
+  const nota=v('em-nota').trim();
+  const prod=estProd(prodId);
+  const spec=estEspecsDe(prod).find(s=>s.nombre===variable);
+  const unidad=spec?spec.unidad||'':'';
+  for(const valor of valores){
+    await dbAdd('est_mediciones',{fecha,productoId:prodId,variable,valor,unidad,nota,organizacion:estOrgActiva(),createdAt:new Date().toISOString()});
+  }
+  await estAudit('medicion.registrar','est_mediciones',prodId,null,{variable,n:valores.length});
+  await estLoad('est_mediciones');
+  const fuera=valores.filter(x=>EstCore.clasificarValor(x,spec)==='fuera').length;
+  toast(`⚖️ ${valores.length} medición(es) registrada(s)`+(fuera?` — ⚠ ${fuera} fuera de rango`:''),fuera?'var(--gold)':undefined);
+  estControlSelectProd(prodId);
+}
+async function estBorrarMedicion(id){
+  if(!estGuard('prod.crud'))return;
+  const m=(_estCache.est_mediciones||[]).find(x=>x.id===id);
+  await dbDel('est_mediciones',id);
+  await estAudit('medicion.eliminar','est_mediciones',id,m,null);
+  await estLoad('est_mediciones');
+  if(_estControlProd)estControlSelectProd(_estControlProd);
+}
+
+// ════════════════════════════════════════════════════════════════
 // RESPALDO E IMPORTACIÓN DEL MÓDULO
 // ════════════════════════════════════════════════════════════════
 async function estExportarModulo(){
@@ -1730,5 +1938,5 @@ async function estCargarDemo(){
 // ════════════════════════════════════════════════════════════════
 function estSwitchTab(tab,el){
   switchTab('est',tab,el);
-  ({panel:estRenderPanel,ing:estRenderIngredientes,prod:estRenderProductos,rec:estRenderRecetas,calc:estRenderCalc,ord:estRenderOrdenes})[tab]?.();
+  ({panel:estRenderPanel,ing:estRenderIngredientes,prod:estRenderProductos,rec:estRenderRecetas,calc:estRenderCalc,ord:estRenderOrdenes,control:estRenderControl})[tab]?.();
 }

@@ -373,6 +373,57 @@ test('registros sin organización caen en la organización por defecto',()=>{
   assert.strictEqual(C.perteneceAOrg({},2,1),false);
 });
 
+console.log('\n■ Especificaciones y tolerancias por variable');
+test('clasifica dentro / advertencia / fuera con zona de aviso',()=>{
+  const spec={min:80,max:120,advMin:90,advMax:110};
+  assert.strictEqual(C.clasificarValor(100,spec),'dentro');
+  assert.strictEqual(C.clasificarValor(85,spec),'advertencia');
+  assert.strictEqual(C.clasificarValor(112,spec),'advertencia');
+  assert.strictEqual(C.clasificarValor(70,spec),'fuera');
+  assert.strictEqual(C.clasificarValor(130,spec),'fuera');
+});
+test('sin zona de aviso solo hay dentro/fuera',()=>{
+  const spec={min:80,max:120};
+  assert.strictEqual(C.clasificarValor(100,spec),'dentro');
+  assert.strictEqual(C.clasificarValor(80,spec),'dentro');
+  assert.strictEqual(C.clasificarValor(79.9,spec),'fuera');
+});
+test('admite especificación de un solo lado y valores no numéricos',()=>{
+  assert.strictEqual(C.clasificarValor(200,{min:180}),'dentro');   // solo mínimo
+  assert.strictEqual(C.clasificarValor(150,{min:180}),'fuera');
+  assert.strictEqual(C.clasificarValor(5,{max:10}),'dentro');      // solo máximo
+  assert.strictEqual(C.clasificarValor('x',{min:1,max:9}),null);
+  assert.strictEqual(C.clasificarValor(5,{}),null);                // sin límites
+});
+test('trata null/"" como límite ausente (no como 0)',()=>{
+  // La UI guarda los campos vacíos como null; no deben interpretarse como 0.
+  assert.strictEqual(C.clasificarValor(500,{min:60,max:null,advMin:null,advMax:null}),'dentro');
+  assert.strictEqual(C.clasificarValor(50,{min:60,max:null}),'fuera');
+  assert.deepStrictEqual(C.validarEspecificacion({nombre:'x',min:60,max:null,advMin:null,advMax:null}),[]);
+  assert.strictEqual(C.clasificarValor(5,{min:'',max:''}),null);   // ambos vacíos → sin límites
+});
+test('valida una especificación',()=>{
+  assert.deepStrictEqual(C.validarEspecificacion({nombre:'Temp',min:180,max:220}),[]);
+  assert.ok(C.validarEspecificacion({nombre:'',min:1,max:2}).length);      // sin nombre
+  assert.ok(C.validarEspecificacion({nombre:'x'}).length);                 // sin límites
+  assert.ok(C.validarEspecificacion({nombre:'x',min:10,max:5}).length);    // min>max
+  assert.ok(C.validarEspecificacion({nombre:'x',min:10,max:20,advMin:5}).length); // aviso fuera del límite
+});
+test('resume una serie contra la especificación',()=>{
+  const spec={min:80,max:120,advMin:90,advMax:110};
+  const r=C.resumenEspecificacion([100,105,85,130,'x'],spec);
+  assert.strictEqual(r.n,4);                     // ignora no numéricos
+  assert.strictEqual(r.dentro,2);                // 100,105
+  assert.strictEqual(r.advertencia,1);           // 85
+  assert.strictEqual(r.fuera,1);                 // 130
+  casi(r.cumplimientoPct,50);                    // 2 dentro / 4 clasificados
+  assert.strictEqual(r.max,130);
+});
+test('serie vacía no rompe',()=>{
+  const r=C.resumenEspecificacion([],{min:1,max:2});
+  assert.strictEqual(r.n,0);assert.strictEqual(r.cumplimientoPct,null);
+});
+
 console.log('\n■ Confidencialidad y control de exportación');
 test('nivel por defecto es interna cuando falta o es desconocido',()=>{
   assert.strictEqual(C.nivelConfidencial(null),'interna');
