@@ -76,20 +76,22 @@ PORT=3998 node server/index.js &            # levantar
 
 ## Desplegar al servidor del dueño
 
+El VPS tiene clonado este repo en `/root/pancontrol` y está en la rama `main`.
 El dueño (no técnico) despliega copiando estos comandos en su terminal SSH:
 
 ```bash
 cd /root/pancontrol
-git pull origin claude/app-robustness-review-tmufc5
+git pull origin main
 pm2 restart pancontrol
 ```
 
-Deja tus cambios **commiteados y pusheados** a la rama de trabajo, y entrégale
-al dueño ese bloque de 3 líneas. No necesita nada más.
+Deja tus cambios **commiteados y pusheados** a tu rama de trabajo y fusiónalos
+a `main` (PR). Solo lo que está en `main` llega al servidor. Luego entrégale al
+dueño ese bloque de 3 líneas. No necesita nada más.
 
 ## Qué NO hacer
 
 - ❌ No reintroducir Firebase, IndexedDB, ni `_localId`/sincronización dual.
 - ❌ No poner archivos del frontend en la raíz — van en `public/`.
 - ❌ No exponer contraseñas ni claves en el código del cliente.
-- ❌ No basarte en `main`.
+- ❌ No basarte en ramas o historial anteriores a la migración — parte siempre de `main`.
