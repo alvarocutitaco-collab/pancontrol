@@ -1,126 +1,149 @@
-# Desplegar PanControl en tu VPS de Vultr (Ubuntu)
+# Pasar PanControl de Vultr a Cloudflare (gratis)
 
-Esta guía asume el mismo patrón que ya usas para Casa Milagro: un VPS Ubuntu,
-Node.js corriendo con PM2, y Nginx como puerta de entrada con HTTPS.
+PanControl ahora puede correr **gratis en Cloudflare**: la misma app, las
+mismas pantallas, con los datos en la nube. Se usa desde la PC, la tablet y el
+celular con los mismos datos. Cuando todo esté comprobado, puedes dar de baja
+el servidor de Vultr y dejar de pagarlo.
 
-## 1. Preparar el servidor (una sola vez)
+Son 4 partes. Las haces una sola vez.
 
-```bash
-# Conéctate por SSH a tu VPS
-ssh usuario@tu-servidor
+---
 
-# Instalar Node.js 20 LTS
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
+## Parte 1 — Publicar la app en Cloudflare (10 minutos)
 
-# Instalar PM2 (mantiene la app corriendo y la reinicia si se cae)
-sudo npm install -g pm2
-```
+1. Entra a **https://dash.cloudflare.com** con la misma cuenta donde ya tienes
+   el lector de facturas (`pancontrol-ocr-ia`).
+2. En el menú de la izquierda entra a **Workers & Pages** y pulsa
+   **Create** (Crear).
+3. Elige **Import a repository** (Importar un repositorio). Si te pide
+   conectar GitHub, acepta y dale acceso al repositorio `pancontrol`.
+4. Elige el repositorio **alvarocutitaco-collab/pancontrol**. Deja el nombre
+   del proyecto como `pancontrol` y todo lo demás como viene. Pulsa
+   **Deploy** (Desplegar).
+5. Espera 1 a 3 minutos. Cloudflare crea sola la base de datos y te muestra la
+   dirección de tu app, algo como:
+   `https://pancontrol.alvarocutitaco.workers.dev` → **anótala**.
 
-## 2. Subir el código
+### Poner la contraseña
 
-```bash
-git clone <URL-de-este-repositorio> pancontrol
-cd pancontrol
-npm install --production
-```
+6. Dentro del proyecto `pancontrol` entra a **Settings** (Configuración) →
+   **Variables and Secrets** (Variables y secretos) → **Add** (Agregar).
+7. Tipo: **Secret**. Nombre: `ADMIN_PASSWORD`. Valor: la contraseña que
+   quieras para entrar como administrador. Guarda (**Deploy**).
+8. *(Opcional)* Si quieres una contraseña de **solo lectura** para alguien que
+   solo mire, agrega otro secreto llamado `VIEWER_PASSWORD`.
+9. Abre la dirección de tu app y entra con tu contraseña para comprobar que
+   funciona. **Todavía no cargues datos**: primero pasa los de Vultr (Parte 2).
 
-## 3. Configurar variables de entorno
+> Para cambiar la contraseña más adelante, edita el secreto en ese mismo
+> lugar. Al cambiarla, se cierran las sesiones abiertas en todos los equipos.
 
-Crea un archivo `.env` (o exporta las variables en el sistema) con:
+---
 
-```bash
-SESSION_SECRET=una-frase-larga-y-secreta-que-solo-tu-conoces
-NODE_ENV=production
-TRUST_PROXY=1
-```
+## Parte 2 — Pasar tus datos de Vultr a Cloudflare (5 minutos)
 
-`SESSION_SECRET` protege las sesiones de los usuarios — cámbialo por algo
-único (no uses el valor de ejemplo).
-
-## 4. Crear las cuentas de acceso
-
-```bash
-node server/seed-users.js admin "TU-CLAVE-DE-ADMIN"
-node server/seed-users.js viewer "TU-CLAVE-DE-SOLO-LECTURA"
-```
-
-Puedes correr este comando de nuevo en cualquier momento para cambiar una
-contraseña.
-
-## 5. Migrar los datos de la app anterior (Firebase)
-
-1. Abre la versión anterior de PanControl (la que usa Firebase) y descarga el
-   backup con el botón **"💾 Descargar backup"** en el Dashboard.
-2. Copia ese archivo `.json` a tu VPS.
-3. Corre:
+Entra por SSH a tu servidor de Vultr, como siempre, y copia estas líneas
+(cambia la dirección por la tuya del paso 5):
 
 ```bash
-node server/migrate-backup.js ruta/al/backup.json
+cd /root/pancontrol
+git pull origin main
+node server/migrar-a-cloudflare.js https://pancontrol.alvarocutitaco.workers.dev
 ```
 
-4. Abre la nueva app y confirma que los datos coinciden antes de dejar de usar
-   la versión anterior.
+Te pedirá la contraseña de administrador **de la app nueva** (la del paso 7).
+Después copia todos los registros y las fotos y al final muestra una
+verificación como esta:
 
-## 6. Arrancar la app con PM2
-
-```bash
-pm2 start ecosystem.config.js
-pm2 save
-pm2 startup   # sigue las instrucciones que imprime, para que arranque solo si el VPS se reinicia
+```
+🔎 Verificación (este servidor → app nueva):
+   ✓ entradas: 1234 → 1234
+   ✓ produccion: 856 → 856
+   ...
+✅ Listo. Todos los datos están en la app nueva.
 ```
 
-La app queda escuchando en `http://localhost:3000` dentro del servidor.
+- Esto **no borra ni cambia nada** en Vultr: solo lee.
+- Si se corta a la mitad, vuelve a correr la última línea agregando
+  ` --forzar` al final. No duplica nada.
+- Desde este momento **usa solo la app nueva**. Lo que registres en la vieja
+  ya no pasa a la nueva.
 
-## 7. Nginx como puerta de entrada (con HTTPS)
+---
 
-```nginx
-server {
-    listen 80;
-    server_name pancontrol.tudominio.com;
+## Parte 3 — Usar la app nueva
 
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
+1. Abre la dirección nueva en la **PC, la tablet y el celular** y entra con tu
+   contraseña.
+2. Revisa que estén tus entradas, producción, inventario, recetas y fotos.
+3. En la tablet y el celular puedes instalarla como app: en el menú del
+   navegador elige **"Agregar a pantalla de inicio"** o **"Instalar app"**.
 
-Guarda esto en `/etc/nginx/sites-available/pancontrol`, actívalo y pide
-certificado HTTPS gratis:
+**Actualizaciones:** ya no tienes que hacer nada. Cada vez que se aprueba un
+cambio en GitHub (rama `main`), Cloudflare publica la nueva versión solo en
+1 o 2 minutos.
 
-```bash
-sudo ln -s /etc/nginx/sites-available/pancontrol /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-sudo apt-get install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d pancontrol.tudominio.com
-```
+**Respaldos:** Cloudflare guarda automáticamente la historia de la base de
+datos de los **últimos 7 días**. Si algo se borra por error, se puede volver
+atrás a cualquier momento de esa semana (pídele ayuda a Claude). Además puedes
+seguir usando el botón **"💾 Descargar backup"** de la app cuando quieras
+guardar una copia en tu equipo.
 
-## 8. Respaldos
+---
 
-Todos los datos viven en un solo archivo: `data/pancontrol.db`. Para
-respaldarlo basta con copiarlo:
+## Parte 4 — Dar de baja Vultr (cuando todo esté bien)
 
-```bash
-cp data/pancontrol.db respaldo-$(date +%F).db
-```
+Recomendado: usa la app nueva **una o dos semanas** antes de este paso.
 
-Puedes automatizarlo con una tarea programada (`cron`) que copie ese archivo
-todos los días a otro lugar (otro disco, un bucket, etc.).
+1. **Guarda una copia final** de los datos de Vultr en tu PC. En el servidor:
 
-## Actualizar la app después de un cambio de código
+   ```bash
+   cd /root/pancontrol
+   tar czf /root/respaldo-pancontrol.tar.gz data
+   ```
 
-```bash
-cd pancontrol
-git pull
-npm install --production
-pm2 restart pancontrol
-```
+   Y en tu PC (PowerShell en Windows), cambiando `IP-DEL-SERVIDOR`:
 
-## El backend de OCR (facturas) no cambia
+   ```bash
+   scp root@IP-DEL-SERVIDOR:/root/respaldo-pancontrol.tar.gz .
+   ```
 
-El servicio que lee fotos de facturas (`backend-cloudflare-worker/`) sigue
-desplegado en Cloudflare, tal como estaba. No necesita moverse al VPS.
+2. **Comprueba que el servidor no aloja nada más** (por ejemplo, la web de Casa
+   Milagro). En el servidor:
+
+   ```bash
+   pm2 list
+   ls /etc/nginx/sites-enabled/
+   ```
+
+   Si solo aparece `pancontrol`, puedes borrarlo. Si aparece algo más, **no lo
+   borres**: eso también se caería.
+3. En **https://my.vultr.com** → **Products** → tu servidor → **Destroy**
+   (Destruir). Ojo: un servidor solo "apagado" **se sigue cobrando**. Hay que
+   destruirlo para dejar de pagar.
+
+### ¿Y la dirección pancontrol.casamilagro.com.pe?
+
+Después de destruir el servidor, esa dirección deja de funcionar. Puedes usar
+la dirección `...workers.dev` de Cloudflare, o conectar tu dominio a la app
+nueva: en el proyecto `pancontrol` → **Settings** → **Domains & Routes** →
+**Add** → **Custom domain** → `pancontrol.casamilagro.com.pe`. Esto funciona si
+el dominio `casamilagro.com.pe` está administrado en Cloudflare. Si está en
+otro lugar, pide ayuda para moverlo.
+
+---
+
+## Detalles técnicos (para quien mantenga la app)
+
+- `wrangler.toml` define todo: la app web (`public/`), la API
+  (`worker/index.js`) y la base D1 `pancontrol` (se crea sola en el primer
+  despliegue: no lleva `database_id`).
+- Secretos del Worker: `ADMIN_PASSWORD` (obligatorio) y `VIEWER_PASSWORD`
+  (opcional). La clave para firmar las sesiones se genera sola y se guarda en
+  la base.
+- Límites del plan gratis: 100 000 peticiones/día, 5 GB de base de datos,
+  10 ms de CPU por petición y 50 consultas por petición. Para una persona sobra.
+- Probar en local: crea `.dev.vars` con `ADMIN_PASSWORD=admin123` y corre
+  `npx wrangler dev`. Pruebas: `npm test`.
+- El lector de facturas (`backend-cloudflare-worker/`) es otro Worker aparte y
+  no cambia.

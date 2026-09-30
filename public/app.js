@@ -67,7 +67,8 @@ async function doLogin(){
     overlay.classList.add('active');
     video.currentTime=0;
     _startIntroCanvas(video);
-    video.play().catch(()=>{_stopIntroCanvas();launchApp(role);});
+    // Si el video no se puede reproducir, se quita la capa del intro para no tapar la app.
+    video.play().catch(()=>{_stopIntroCanvas();overlay.classList.remove('active');launchApp(role);});
     video.addEventListener('ended',()=>{
       _stopIntroCanvas();
       overlay.classList.add('fade-out');

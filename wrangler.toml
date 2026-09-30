@@ -1,0 +1,23 @@
+# PanControl en Cloudflare (plan gratis): la app web (public/) + la API (worker/)
+# + la base de datos D1. Cloudflare despliega esto solo cada vez que cambia la
+# rama main (ver README-DEPLOY.md).
+name = "pancontrol"
+main = "worker/index.js"
+compatibility_date = "2026-09-01"
+
+# Los archivos de public/ se sirven directo; lo que no existe ahí (las rutas
+# /api/...) lo atiende el Worker.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+# Los videos pasan por el Worker para entregarlos por partes (Safari lo exige).
+run_worker_first = ["/intro.mp4", "/doraemon.webm"]
+
+# Base de datos. No hace falta poner database_id: en el primer despliegue
+# Cloudflare crea la base "pancontrol" sola y en los siguientes la reutiliza.
+[[d1_databases]]
+binding = "DB"
+database_name = "pancontrol"
+
+# Las contraseñas NO van aquí: se configuran como secretos en el panel de
+# Cloudflare (ADMIN_PASSWORD y, opcional, VIEWER_PASSWORD).

@@ -6,13 +6,19 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "migrate": "node server/migrate-backup.js"
+    "migrate": "node server/migrate-backup.js",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node tests/produccion-core.test.js && node tests/server-org-scope.test.js && node tests/worker-api.test.js && node tests/migracion.test.js"
   },
   "dependencies": {
-    "better-sqlite3": "^11.3.0",
     "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.3.0",
     "better-sqlite3-session-store": "^0.1.0",
     "express": "^4.19.2",
     "express-session": "^1.18.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.145.0"
   }
 }
