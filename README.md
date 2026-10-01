@@ -14,6 +14,8 @@ versiones, calculadora, órdenes, lotes, calidad y operadores).
   - la base de datos D1 `pancontrol` (SQLite), la única fuente de verdad.
 - **OCR de facturas** (`backend-cloudflare-worker/`): otro Worker aparte que
   lee fotos de facturas con IA. Se configura por separado (ver su README).
+- **`excel/`**: versión de prueba en Excel con macros (`PanControl.xlsm`), generada
+  por `excel/construir_excel.py`. Ver [`excel/LEEME.md`](./excel/LEEME.md).
 - **`server/`** (Node + Express + SQLite): el servidor anterior del VPS de
   Vultr. Se mantiene solo hasta terminar la migración
   (`server/migrar-a-cloudflare.js`) y apagar el VPS.

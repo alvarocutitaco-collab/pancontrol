@@ -3,3 +3,4 @@ data/
 *.log
 .wrangler/
 .dev.vars
+__pycache__/

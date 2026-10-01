@@ -36,6 +36,7 @@ tests/             → pruebas: `npm test` (o node tests/<archivo>.test.js)
 server/            → servidor viejo del VPS (EN RETIRO, no agregar funciones)
   migrar-a-cloudflare.js → copia la base + fotos del VPS a Cloudflare
 backend-cloudflare-worker/ → Worker aparte del OCR de facturas (no cambia)
+excel/             → versión Excel con macros (prueba). Ver excel/LEEME.md
 ```
 
 ## Cómo se guardan y leen datos (regla de oro)
@@ -101,6 +102,15 @@ publica sola en 1–2 minutos. Avísale al dueño qué cambió.
 La puesta en marcha inicial en Cloudflare, la migración de datos desde Vultr y
 el apagado del VPS están en `README-DEPLOY.md` (escrito para el dueño, no
 técnico).
+
+## Versión Excel (`excel/`)
+
+Hay una versión de prueba en Excel (`excel/PanControl.xlsm`) que el dueño está
+evaluando como alternativa. **El `.xlsm` se genera**: cambia
+`excel/construir_excel.py` o `excel/vba/*.bas`, regenera con
+`python3 excel/construir_excel.py` y prueba con
+`python3 excel/verificar_vba.py` y `/usr/bin/python3 excel/probar_excel.py`
+(LibreOffice). Lee los cuidados de VBA en `excel/LEEME.md`.
 
 ## Qué NO hacer
 
