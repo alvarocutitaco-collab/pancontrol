@@ -1,33 +1,43 @@
 # PanControl (DonPancho)
 
 ERP simple de producción para panadería: insumos, producción, salidas,
-inventario y catálogos. Un operador registra los movimientos del día; el
-resto del equipo solo consulta.
+inventario, catálogos y el módulo de Producción y Estandarización (recetas,
+versiones, calculadora, órdenes, lotes, calidad y operadores).
 
 ## Arquitectura
 
-- **Backend propio** (`server/`): Node.js + Express + SQLite. Sirve la API
-  (`/api/...`) y los archivos estáticos de `public/`. Es la única fuente de
-  verdad — no hay sincronización con servicios externos para los datos del
-  negocio.
-- **Frontend** (`public/`): HTML/CSS/JS sin build (vanilla JS), habla con el
-  backend por `fetch`.
-- **OCR de facturas** (`backend-cloudflare-worker/`): servicio aparte en
-  Cloudflare Workers que lee fotos de facturas con IA. Se configura por
-  separado (ver su propio README).
+- **Cloudflare Workers + D1** (plan gratis). `wrangler.toml` publica:
+  - la app web (`public/`): HTML/CSS/JS sin build (vanilla JS), habla con la
+    API por `fetch`;
+  - la API (`worker/index.js`): login, CRUD de datos, organizaciones y fotos
+    en `/api/...`;
+  - la base de datos D1 `pancontrol` (SQLite), la única fuente de verdad.
+- **OCR de facturas** (`backend-cloudflare-worker/`): otro Worker aparte que
+  lee fotos de facturas con IA. Se configura por separado (ver su README).
+- **`excel/`**: versión de prueba en Excel con macros (`PanControl.xlsm`), generada
+  por `excel/construir_excel.py`. Ver [`excel/LEEME.md`](./excel/LEEME.md).
+- **`server/`** (Node + Express + SQLite): el servidor anterior del VPS de
+  Vultr. Se mantiene solo hasta terminar la migración
+  (`server/migrar-a-cloudflare.js`) y apagar el VPS.
 
 ## Correr en local
 
 ```bash
 npm install
-node server/seed-users.js admin "tu-clave"
-node server/seed-users.js viewer "otra-clave"
-npm start
+echo 'ADMIN_PASSWORD=admin123' > .dev.vars
+npm run dev
 ```
 
-Abre `http://localhost:3000`.
+Abre `http://localhost:8787`.
+
+## Pruebas
+
+```bash
+npm test
+```
 
 ## Desplegar en producción
 
-Ver [`README-DEPLOY.md`](./README-DEPLOY.md) para la guía paso a paso en un
-VPS (Ubuntu + PM2 + Nginx).
+Cloudflare despliega solo cada cambio que llega a la rama `main`. La
+configuración inicial y la migración desde Vultr están paso a paso en
+[`README-DEPLOY.md`](./README-DEPLOY.md).
